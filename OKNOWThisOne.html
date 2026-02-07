@@ -1,0 +1,832 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>WorldShift 3D Calm (Single File)</title>
+  <style>
+    :root{--bg:#0b0f14;--muted:#9aa4b2;--text:#e6edf3;--accent:#4da3ff;--good:#40c463;--bad:#ff5c5c}
+    *{box-sizing:border-box; touch-action:none;}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;overflow:hidden}
+    canvas{display:block}
+    .topbar{
+      position:fixed;left:0;right:0;top:0;height:56px;
+      display:flex;align-items:center;gap:10px;padding:10px 12px;
+      background:rgba(0,0,0,.35);backdrop-filter: blur(10px);
+      border-bottom:1px solid rgba(255,255,255,.10);z-index:20;
+    }
+    .title{font-weight:800;font-size:14px}
+    .chip{font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.25)}
+    .chip b{font-variant-numeric:tabular-nums}
+    .btn{
+      cursor:pointer;border:1px solid rgba(255,255,255,.16);background:rgba(0,0,0,.28);color:var(--text);
+      padding:10px 12px;border-radius:12px;font-size:13px;display:inline-flex;align-items:center;gap:8px;
+    }
+    .btn.small{padding:8px 10px;font-size:12px;border-radius:10px}
+    .btn.primary{background:linear-gradient(180deg,rgba(77,163,255,.35),rgba(77,163,255,.15));border-color:rgba(77,163,255,.55)}
+    .btn.good{background:linear-gradient(180deg,rgba(64,196,99,.35),rgba(64,196,99,.12));border-color:rgba(64,196,99,.55)}
+    .btn.bad{background:linear-gradient(180deg,rgba(255,92,92,.35),rgba(255,92,92,.12));border-color:rgba(255,92,92,.55)}
+    .hud{position:fixed;left:10px;top:66px;display:flex;gap:8px;flex-wrap:wrap;z-index:20}
+    .hud .chip{background:rgba(0,0,0,.35)}
+    .toast{
+      position:fixed;left:50%;bottom:78px;transform:translateX(-50%);
+      background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.16);
+      padding:10px 14px;border-radius:999px;font-size:13px;display:none;max-width:92vw;z-index:40
+    }
+    .drawer{
+      position:fixed;left:0;right:0;bottom:0;z-index:30;
+      background:rgba(0,0,0,.40);backdrop-filter: blur(10px);
+      border-top:1px solid rgba(255,255,255,.10);
+      border-radius:18px 18px 0 0;max-height:62vh;overflow:hidden
+    }
+    .drawerHeader{
+      display:flex;align-items:center;justify-content:space-between;gap:10px;
+      padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.10)
+    }
+    .drawerBody{padding:12px;overflow:auto;max-height:54vh}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .card{background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.10);border-radius:14px;padding:10px}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .muted{color:var(--muted)}
+    .list{display:flex;flex-direction:column;gap:8px}
+    .tag{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.14);color:var(--muted)}
+    .tag.tierD{border-color:rgba(154,164,178,.40)}
+    .tag.tierC{border-color:rgba(77,163,255,.35);color:#b9dcff}
+    .tag.tierB{border-color:rgba(255,204,102,.40);color:#ffe3b0}
+    .tag.tierA{border-color:rgba(194,102,255,.40);color:#e8c9ff}
+    .tag.tierS{border-color:rgba(64,196,99,.45);color:#bdf2c8}
+    input,select{background:rgba(0,0,0,.28);color:var(--text);border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:10px 10px}
+    input{flex:1}
+    .touchLayer{position:fixed;left:0;right:0;bottom:0;top:56px;z-index:25;pointer-events:none}
+    .joystick{
+      position:absolute;left:14px;bottom:14px;width:150px;height:150px;border-radius:50%;
+      background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.14);pointer-events:auto
+    }
+    .stick{
+      position:absolute;left:50%;top:50%;width:64px;height:64px;border-radius:50%;
+      transform:translate(-50%,-50%);background:rgba(77,163,255,.20);border:1px solid rgba(77,163,255,.55)
+    }
+    .actions{position:absolute;right:14px;bottom:14px;display:flex;flex-direction:column;gap:10px;pointer-events:auto}
+    .actionBtn{width:150px;justify-content:center}
+    .mini{font-size:11px;color:var(--muted);text-align:center;margin-top:2px}
+    @media (min-width: 900px){ .touchLayer{display:none} }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="title">WorldShift 3D • Calm Sandbox</div>
+    <div class="chip">Money: <b id="money">$0</b></div>
+    <div class="chip">Slots: <b id="slots">0/10</b></div>
+    <button class="btn small" id="toggleDrawer">Menu</button>
+  </div>
+
+  <div class="hud">
+    <div class="chip">City: <b id="cityHud">NYC</b></div>
+    <div class="chip">Speed: <b id="speed">0</b></div>
+    <div class="chip">Zone: <b id="zoneHud">—</b></div>
+    <div class="chip">Interact: <b>E</b></div>
+  </div>
+
+  <div class="touchLayer">
+    <div class="joystick" id="joy"><div class="stick" id="stick"></div></div>
+    <div class="actions">
+      <button class="btn primary actionBtn" id="act">Interact</button><div class="mini">in zone</div>
+      <button class="btn good actionBtn" id="job">Job</button><div class="mini">+$ (legal)</div>
+      <button class="btn actionBtn" id="repair">Repair</button><div class="mini">fix condition</div>
+    </div>
+  </div>
+
+  <div class="drawer" id="drawer">
+    <div class="drawerHeader">
+      <div class="muted" style="font-size:12px">WASD/Arrows: drive • Space: brake • E: interact</div>
+      <div class="row">
+        <select id="city">
+          <option>NYC</option><option>Los Angeles</option><option>London</option><option>Paris</option><option>Rome</option><option>Tokyo</option>
+        </select>
+        <button class="btn small" id="travel">Travel</button>
+      </div>
+    </div>
+    <div class="drawerBody">
+      <div class="grid2">
+        <div class="card">
+          <div style="font-weight:800">House & Garage</div>
+          <div class="muted" style="font-size:12px;margin-top:4px">
+            Start with <b>10 slots</b>. Each upgrade adds <b>+10 slots</b>.
+          </div>
+          <div class="row" style="margin-top:10px">
+            <button class="btn primary" id="upgrade">Upgrade (+10)</button>
+            <button class="btn" id="save">Save</button>
+            <button class="btn" id="reset">Reset</button>
+          </div>
+          <div class="muted" style="font-size:12px;margin-top:8px" id="upgradeMeta"></div>
+        </div>
+
+        <div class="card">
+          <div style="font-weight:800">Current Car</div>
+          <div id="curName" style="margin-top:6px">—</div>
+          <div class="muted" id="curMeta" style="font-size:12px;margin-top:4px">—</div>
+          <div class="row" style="margin-top:10px">
+            <span class="tag" id="curTier">—</span>
+            <span class="tag">Cond: <b id="cond">100</b>%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:10px">
+        <div style="font-weight:800">Sandbox Economy</div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn bad" id="steal">Steal Random Car</button>
+          <button class="btn" id="chop">Chop Selected</button>
+          <button class="btn good" id="quickJob">Do Quick Job</button>
+        </div>
+        <div class="muted" style="font-size:12px;margin-top:8px">
+          No police, no laws. Steal freely. Chop cars for money. Do jobs for steady cash.
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:10px">
+        <div style="font-weight:800">Dealership</div>
+        <div class="row" style="margin-top:10px">
+          <input id="search" placeholder="Search brand/model..." />
+          <select id="tier">
+            <option value="ALL">All</option><option>D</option><option>C</option><option>B</option><option>A</option><option>S</option>
+          </select>
+        </div>
+        <div class="list" id="dealer" style="margin-top:10px;max-height:220px;overflow:auto"></div>
+      </div>
+
+      <div class="card" style="margin-top:10px">
+        <div style="font-weight:800">Your Garage</div>
+        <div class="list" id="garage" style="margin-top:10px;max-height:240px;overflow:auto"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script type="module">
+import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+
+(() => {
+  // --------------------------
+  // Cars (prototype subset; expand anytime)
+  // --------------------------
+  const CARS = [
+    {brand:"Ford", model:"F-150 (OG)", tier:"D", price:1200, top:95, accel:5.5, handling:45},
+    {brand:"Ford", model:"Mustang GT", tier:"B", price:38000, top:155, accel:3.9, handling:68},
+    {brand:"Chevrolet", model:"Impala (Used)", tier:"D", price:1800, top:105, accel:5.8, handling:48},
+    {brand:"Chevrolet", model:"Corvette C8", tier:"A", price:89000, top:194, accel:2.9, handling:80},
+    {brand:"Toyota", model:"Corolla", tier:"C", price:23000, top:112, accel:6.2, handling:55},
+    {brand:"Toyota", model:"Supra", tier:"A", price:56000, top:155, accel:3.9, handling:78},
+    {brand:"Honda", model:"Civic", tier:"C", price:24000, top:120, accel:6.0, handling:60},
+    {brand:"Honda", model:"Civic Type R", tier:"B", price:45000, top:171, accel:4.9, handling:77},
+    {brand:"BMW", model:"330i", tier:"B", price:47000, top:155, accel:4.9, handling:72},
+    {brand:"BMW", model:"M3", tier:"A", price:78000, top:180, accel:3.8, handling:82},
+    {brand:"Ferrari", model:"SF90 Stradale", tier:"S", price:520000, top:211, accel:2.4, handling:92},
+    {brand:"Bugatti", model:"Chiron", tier:"S", price:3000000, top:261, accel:2.4, handling:86},
+    {brand:"Koenigsegg", model:"Jesko", tier:"S", price:3200000, top:300, accel:2.3, handling:90},
+  ];
+
+  const CITY_THEMES = {
+    "NYC": { road: 0x1a2a45, grass: 0x0e3b22, sky: 0x0b1220 },
+    "Los Angeles": { road: 0x2a1a1a, grass: 0x2a3b0e, sky: 0x1a0b0b },
+    "London": { road: 0x1f2a2a, grass: 0x0e3b2a, sky: 0x0b1a1a },
+    "Paris": { road: 0x2a1f2a, grass: 0x123021, sky: 0x160b16 },
+    "Rome": { road: 0x2a241a, grass: 0x2a3b0e, sky: 0x1a160b },
+    "Tokyo": { road: 0x1a1a2a, grass: 0x0e2a3b, sky: 0x0b0b1a },
+  };
+
+  // --------------------------
+  // Helpers + State
+  // --------------------------
+  const $ = (id) => document.getElementById(id);
+  const clamp = (v,a,b) => Math.max(a, Math.min(b,v));
+  const fmt = (n) => "$" + Math.max(0, Math.floor(n)).toLocaleString();
+  const uid = () => Math.random().toString(16).slice(2) + Date.now().toString(16);
+
+  function toast(msg, ms=1800){
+    const t=$("toast"); t.textContent=msg; t.style.display="block";
+    clearTimeout(toast._t); toast._t=setTimeout(()=>t.style.display="none", ms);
+  }
+
+  const defaultState = () => ({
+    money: 500,
+    city: "NYC",
+    garageSlots: 10,
+    upgradeLevel: 0,
+    garage: [],
+    selectedId: null,
+    currentId: null,
+  });
+
+  let state = load() ?? defaultState();
+
+  function save(){ localStorage.setItem("worldshift3d_calm", JSON.stringify(state)); toast("Saved"); }
+  function load(){ try{ const r=localStorage.getItem("worldshift3d_calm"); return r?JSON.parse(r):null; }catch{return null;} }
+  function reset(){
+    state = defaultState();
+    localStorage.removeItem("worldshift3d_calm");
+    initStarter();
+    rebuildCity();
+    resetCarTransform();
+    ensureCarMesh();
+    renderAll();
+    toast("Reset");
+  }
+
+  function upgradeCost(){ return 5000 * (state.upgradeLevel + 1); }
+  function canAddCar(){ return state.garage.length < state.garageSlots; }
+  function addMoney(x){ state.money = Math.max(0, state.money + x); }
+
+  function createOwned(def, source){
+    const baseCond = source==="stolen" ? (60+Math.random()*25) : (85+Math.random()*15);
+    return { id: uid(), ...def, condition: Math.round(baseCond), source, cityFound: state.city };
+  }
+
+  function initStarter(){
+    if(state.garage.length) return;
+    const starter = createOwned(CARS[0], "bought");
+    starter.condition = 92;
+    state.garage.push(starter);
+    state.currentId = starter.id;
+    state.selectedId = starter.id;
+  }
+  initStarter();
+
+  // --------------------------
+  // UI rendering
+  // --------------------------
+  const tierClass = (t) => "tier"+t;
+
+  function renderTop(){
+    $("money").textContent = fmt(state.money);
+    $("slots").textContent = `${state.garage.length}/${state.garageSlots}`;
+    $("cityHud").textContent = state.city;
+    $("city").value = state.city;
+    $("upgrade").textContent = `Upgrade (+10) — ${fmt(upgradeCost())}`;
+    $("upgradeMeta").textContent = `Upgrade cost: ${fmt(upgradeCost())} • Level: ${state.upgradeLevel}`;
+  }
+
+  function renderCurrent(){
+    const car = state.garage.find(c=>c.id===state.currentId) || null;
+    if(!car){
+      $("curName").textContent="—";
+      $("curMeta").textContent="Buy or steal a car.";
+      $("curTier").textContent="—";
+      $("curTier").className="tag";
+      $("cond").textContent="100";
+      return;
+    }
+    $("curName").textContent = `${car.brand} ${car.model}`;
+    $("curMeta").textContent = `Tier ${car.tier} • Top ${car.top} • Handling ${car.handling} • ${car.source}`;
+    $("curTier").textContent = `Tier ${car.tier}`;
+    $("curTier").className = `tag ${tierClass(car.tier)}`;
+    $("cond").textContent = car.condition;
+  }
+
+  function renderGarage(){
+    const wrap=$("garage"); wrap.innerHTML="";
+    if(!state.garage.length){
+      const e=document.createElement("div"); e.className="card muted"; e.textContent="Empty garage.";
+      wrap.appendChild(e); return;
+    }
+    state.garage.forEach(c=>{
+      const card=document.createElement("div");
+      card.className="card";
+      card.style.borderColor = (c.id===state.selectedId) ? "rgba(77,163,255,.65)" : "rgba(255,255,255,.10)";
+      card.innerHTML = `
+        <div class="row" style="justify-content:space-between; align-items:flex-start">
+          <div>
+            <div style="font-weight:800">${c.brand} ${c.model}</div>
+            <div class="muted" style="font-size:12px;margin-top:4px">Tier ${c.tier} • Cond ${c.condition}% • ${c.source}</div>
+          </div>
+          <span class="tag ${tierClass(c.tier)}">Tier ${c.tier}</span>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn small primary">Drive</button>
+          <button class="btn small">Select</button>
+        </div>
+      `;
+      const [driveBtn, selBtn] = card.querySelectorAll("button");
+      driveBtn.onclick=()=>{ state.selectedId=c.id; state.currentId=c.id; ensureCarMesh(); renderGarage(); renderCurrent(); };
+      selBtn.onclick=()=>{ state.selectedId=c.id; renderGarage(); };
+      card.onclick=(e)=>{ if(e.target.tagName.toLowerCase()==="button") return; state.selectedId=c.id; renderGarage(); };
+      wrap.appendChild(card);
+    });
+  }
+
+  function renderDealer(){
+    const q=$("search").value.trim().toLowerCase();
+    const tf=$("tier").value;
+    const list=$("dealer"); list.innerHTML="";
+    const filtered=CARS.filter(c=>{
+      const txt=`${c.brand} ${c.model}`.toLowerCase();
+      const okQ=!q || txt.includes(q);
+      const okT=(tf==="ALL") || (c.tier===tf);
+      return okQ && okT;
+    });
+
+    if(!filtered.length){
+      const e=document.createElement("div"); e.className="card muted"; e.textContent="No matches.";
+      list.appendChild(e);
+      return;
+    }
+
+    filtered.forEach(c=>{
+      const card=document.createElement("div");
+      card.className="card";
+      card.innerHTML=`
+        <div class="row" style="justify-content:space-between; align-items:flex-start">
+          <div>
+            <div style="font-weight:800">${c.brand} ${c.model}</div>
+            <div class="muted" style="font-size:12px;margin-top:4px">Top ${c.top} • 0-60 ~ ${c.accel}s • Handling ${c.handling}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="tag ${tierClass(c.tier)}">Tier ${c.tier}</div>
+            <div class="muted" style="font-size:12px;margin-top:6px">${fmt(c.price)}</div>
+            <button class="btn small primary" style="margin-top:8px">Buy</button>
+          </div>
+        </div>
+      `;
+      card.querySelector("button").onclick=()=>buyCar(c);
+      list.appendChild(card);
+    });
+  }
+
+  function renderAll(){ renderTop(); renderCurrent(); renderGarage(); renderDealer(); }
+
+  // --------------------------
+  // Sandbox actions
+  // --------------------------
+  function buyCar(def){
+    if(!canAddCar()) return toast("Garage full. Upgrade it.");
+    if(state.money < def.price) return toast("Not enough money.");
+    addMoney(-def.price);
+    const owned=createOwned(def,"bought");
+    state.garage.push(owned);
+    state.selectedId=owned.id; state.currentId=owned.id;
+    ensureCarMesh();
+    toast(`Bought: ${owned.brand} ${owned.model}`);
+    renderAll();
+  }
+
+  function weightedPick(pairs){
+    const total=pairs.reduce((s, [,w])=>s+w,0);
+    let r=Math.random()*total;
+    for(const [it,w] of pairs){ r-=w; if(r<=0) return it; }
+    return pairs[pairs.length-1][0];
+  }
+
+  function stealCar(){
+    if(!canAddCar()) return toast("Garage full. Upgrade it.");
+    const weights={D:50,C:32,B:14,A:3.5,S:0.8}; // rarer for hypercars
+    const pool=CARS.map(c=>[c, weights[c.tier]||1]);
+    const pick=weightedPick(pool);
+
+    const owned=createOwned(pick,"stolen");
+    state.garage.push(owned);
+    state.selectedId=owned.id; state.currentId=owned.id;
+
+    ensureCarMesh();
+    toast(`Stole: ${owned.brand} ${owned.model}`);
+    renderAll();
+  }
+
+  function chopSelected(){
+    const car = state.garage.find(c=>c.id===state.selectedId) || null;
+    if(!car) return toast("Select a car first.");
+
+    const base = car.price*(0.22 + car.condition/300);
+    const bonus = car.source==="stolen" ? 1.15 : 1.0;
+    const payout = Math.max(200, Math.floor(base*bonus));
+    addMoney(payout);
+
+    state.garage = state.garage.filter(x=>x.id!==car.id);
+    if(state.currentId===car.id) state.currentId = state.garage[0]?.id ?? null;
+    state.selectedId = state.garage[0]?.id ?? null;
+
+    ensureCarMesh();
+    toast(`Chopped for ${fmt(payout)}`);
+    renderAll();
+  }
+
+  function doJob(){
+    const payout = 250 + Math.floor(Math.random()*450);
+    addMoney(payout);
+    toast(`Job complete: +${fmt(payout)}`);
+    renderTop();
+  }
+
+  function repair(){
+    const owned = state.garage.find(c=>c.id===state.currentId) || null;
+    if(!owned) return toast("No car.");
+    const missing = 100 - owned.condition;
+    if(missing <= 0) return toast("Already 100%.");
+    const cost = Math.max(100, Math.floor((owned.price*0.002)*(missing/20)));
+    if(state.money < cost) return toast(`Repair costs ${fmt(cost)}.`);
+    addMoney(-cost);
+    owned.condition = 100;
+    toast(`Repaired: -${fmt(cost)}`);
+    renderAll();
+  }
+
+  function upgradeGarage(){
+    const cost=upgradeCost();
+    if(state.money < cost) return toast(`Need ${fmt(cost)}.`);
+    addMoney(-cost);
+    state.upgradeLevel++;
+    state.garageSlots += 10;
+    toast(`Garage upgraded! Slots: ${state.garageSlots}`);
+    renderTop();
+  }
+
+  function travel(){
+    state.city = $("city").value;
+    rebuildCity();
+    resetCarTransform();
+    toast(`Traveled to ${state.city}`);
+    renderAll();
+  }
+
+  // --------------------------
+  // 3D world (Three.js)
+  // --------------------------
+  const scene = new THREE.Scene();
+  let theme = CITY_THEMES[state.city] || CITY_THEMES.NYC;
+  scene.background = new THREE.Color(theme.sky);
+
+  const camera = new THREE.PerspectiveCamera(62, window.innerWidth/window.innerHeight, 0.1, 2500);
+  camera.position.set(0, 8, 14);
+
+  const renderer = new THREE.WebGLRenderer({ antialias:true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  renderer.domElement.style.position="fixed";
+  renderer.domElement.style.left="0";
+  renderer.domElement.style.top="0";
+  renderer.domElement.style.zIndex="1";
+  document.body.appendChild(renderer.domElement);
+
+  // Lights
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x223344, 0.9));
+  const dir = new THREE.DirectionalLight(0xffffff, 1.1);
+  dir.position.set(20, 30, 10);
+  scene.add(dir);
+
+  const world = { ground:null, roads:[], buildings:[], props:[], zones:{} };
+
+  function makeGround(){
+    const g = new THREE.PlaneGeometry(1200,1200);
+    const m = new THREE.MeshStandardMaterial({ color: theme.grass, roughness:1.0, metalness:0.0 });
+    const mesh = new THREE.Mesh(g,m);
+    mesh.rotation.x = -Math.PI/2;
+    mesh.receiveShadow = true;
+    return mesh;
+  }
+  function makeRoad(x,z,w,d){
+    const g = new THREE.BoxGeometry(w, 0.08, d);
+    const m = new THREE.MeshStandardMaterial({ color: theme.road, roughness:0.9, metalness:0.0 });
+    const mesh = new THREE.Mesh(g,m);
+    mesh.position.set(x, 0.04, z);
+    return mesh;
+  }
+  function makeBuilding(x,z,w,d,h){
+    const g = new THREE.BoxGeometry(w,h,d);
+    const c = new THREE.Color().setHSL(0.60 + Math.random()*0.10, 0.12, 0.22 + Math.random()*0.20);
+    const m = new THREE.MeshStandardMaterial({ color:c, roughness:0.95, metalness:0.05 });
+    const mesh = new THREE.Mesh(g,m);
+    mesh.position.set(x, h/2, z);
+    return mesh;
+  }
+  function makeZone(name, x,z, color){
+    const ring = new THREE.Mesh(
+      new THREE.CylinderGeometry(6,6,0.12,36),
+      new THREE.MeshStandardMaterial({ color, roughness:0.6, emissive:new THREE.Color(color).multiplyScalar(0.15), metalness:0.0 })
+    );
+    ring.position.set(x,0.06,z);
+    scene.add(ring);
+
+    const pole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.12,0.12,3,16),
+      new THREE.MeshStandardMaterial({color:0xdddddd, roughness:0.8})
+    );
+    pole.position.set(x,1.5,z);
+    scene.add(pole);
+
+    const sign = new THREE.Mesh(
+      new THREE.BoxGeometry(4.2,1.2,0.2),
+      new THREE.MeshStandardMaterial({color:0x0b0f14, roughness:0.9})
+    );
+    sign.position.set(x,2.7,z);
+    scene.add(sign);
+
+    world.props.push(ring,pole,sign);
+    world.zones[name] = { x, z, r: 6.2 };
+  }
+
+  function clearWorld(){
+    const list = [];
+    if(world.ground) list.push(world.ground);
+    list.push(...world.roads, ...world.buildings, ...world.props);
+    for(const m of list){
+      if(m && m.parent) m.parent.remove(m);
+      if(m?.geometry) m.geometry.dispose();
+      if(m?.material){
+        if(Array.isArray(m.material)) m.material.forEach(mm=>mm.dispose());
+        else m.material.dispose();
+      }
+    }
+    world.ground=null; world.roads=[]; world.buildings=[]; world.props=[]; world.zones={};
+  }
+
+  function rebuildCity(){
+    theme = CITY_THEMES[state.city] || CITY_THEMES.NYC;
+    scene.background = new THREE.Color(theme.sky);
+    clearWorld();
+
+    world.ground = makeGround();
+    scene.add(world.ground);
+
+    const roads = [
+      makeRoad(0, 0, 280, 14),
+      makeRoad(0, 0, 14, 280),
+      makeRoad(-80, 60, 160, 10),
+      makeRoad(80, -60, 160, 10),
+      makeRoad(-120, -120, 120, 10),
+      makeRoad(120, 120, 120, 10),
+    ];
+    roads.forEach(r=>scene.add(r));
+    world.roads.push(...roads);
+
+    for(let i=0;i<140;i++){
+      const angle=Math.random()*Math.PI*2;
+      const radius=60+Math.random()*220;
+      const x=Math.cos(angle)*radius;
+      const z=Math.sin(angle)*radius;
+      if(Math.abs(x)<18 || Math.abs(z)<18) continue;
+      const w=6+Math.random()*14;
+      const d=6+Math.random()*14;
+      let baseH=10+Math.random()*40;
+      if(state.city==="NYC" || state.city==="Tokyo") baseH*=1.25;
+      if(state.city==="Rome") baseH*=0.75;
+      const h=baseH;
+      const b=makeBuilding(x,z,w,d,h);
+      scene.add(b);
+      world.buildings.push(b);
+      if(world.buildings.length>120) break;
+    }
+
+    makeZone("HOUSE", -60, 110, 0x40c463);
+    makeZone("DEALER", 110, -40, 0x4da3ff);
+    makeZone("CHOP", 110, 40, 0xc266ff);
+    makeZone("STEAL", 110, 120, 0xff5c5c);
+  }
+
+  rebuildCity();
+
+  // --------------------------
+  // Car + driving (arcade)
+  // --------------------------
+  let car = { mesh:null, heading:0, speed:0, pos: new THREE.Vector3(-60,0.35,110) };
+
+  function carStats(){
+    const owned = state.garage.find(c=>c.id===state.currentId) || null;
+    if(!owned) return { maxSpeed:18, accel:22, turnRate:2.0, brake:32 };
+    const cond = owned.condition/100;
+    const maxSpeed = clamp((owned.top/300)*34*(0.65+0.35*cond), 12, 38);
+    const accel = clamp((1/owned.accel)*38*(0.70+0.30*cond), 12, 55);
+    const turnRate = clamp(1.2 + (owned.handling/100)*2.0, 1.1, 3.2);
+    return { maxSpeed, accel, turnRate, brake:42 };
+  }
+
+  function ensureCarMesh(){
+    if(car.mesh && car.mesh.parent) scene.remove(car.mesh);
+
+    const owned = state.garage.find(c=>c.id===state.currentId) || null;
+    const tier = owned?.tier ?? "C";
+    const size = {D:[2.2,0.7,4.2],C:[2.0,0.65,4.0],B:[2.1,0.65,4.1],A:[2.2,0.6,4.0],S:[2.3,0.55,4.1]}[tier] || [2.0,0.65,4.0];
+    const [w,h,l]=size;
+
+    const group = new THREE.Group();
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(w,h,l),
+      new THREE.MeshStandardMaterial({ color:0x4da3ff, roughness:0.55, metalness:0.25 })
+    );
+    body.position.y = 0.35;
+    group.add(body);
+
+    const cabin = new THREE.Mesh(
+      new THREE.BoxGeometry(w*0.78,h*0.75,l*0.45),
+      new THREE.MeshStandardMaterial({ color:0x111826, roughness:0.9, metalness:0.05 })
+    );
+    cabin.position.set(0,0.72,-0.2);
+    group.add(cabin);
+
+    const wheelMat = new THREE.MeshStandardMaterial({ color:0x0a0a0a, roughness:1.0 });
+    const wheelGeo = new THREE.CylinderGeometry(0.35,0.35,0.28,18);
+    const wheelPos=[[-w*0.45,0.23,l*0.35],[w*0.45,0.23,l*0.35],[-w*0.45,0.23,-l*0.35],[w*0.45,0.23,-l*0.35]];
+    for(const [x,y,z] of wheelPos){
+      const wh = new THREE.Mesh(wheelGeo, wheelMat);
+      wh.rotation.z = Math.PI/2;
+      wh.position.set(x,y,z);
+      group.add(wh);
+    }
+
+    const glowColor = {D:0x9aa4b2,C:0x4da3ff,B:0xffcc66,A:0xc266ff,S:0x40c463}[tier] || 0x4da3ff;
+    const under = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.6,1.6,0.05,24),
+      new THREE.MeshStandardMaterial({ color:glowColor, emissive:new THREE.Color(glowColor).multiplyScalar(0.25), roughness:0.9, transparent:true, opacity:0.25 })
+    );
+    under.position.set(0,0.05,0);
+    group.add(under);
+
+    car.mesh = group;
+    scene.add(car.mesh);
+  }
+
+  function resetCarTransform(){
+    car.pos.set(-60,0.35,110);
+    car.heading = 0;
+    car.speed = 0;
+    if(car.mesh){
+      car.mesh.position.copy(car.pos);
+      car.mesh.rotation.y = car.heading;
+    }
+  }
+
+  ensureCarMesh();
+  resetCarTransform();
+
+  function currentZone(){
+    const p = car.pos;
+    for(const [name, z] of Object.entries(world.zones)){
+      const dx=p.x-z.x, dz=p.z-z.z;
+      if(Math.hypot(dx,dz) <= z.r) return name;
+    }
+    return null;
+  }
+
+  // Tiny damage if you go out of bounds too much (purely to make repair useful)
+  function outOfBounds(pos){ return (Math.abs(pos.x)>260 || Math.abs(pos.z)>260); }
+  function maybeWear(dt){
+    const owned = state.garage.find(c=>c.id===state.currentId) || null;
+    if(!owned) return;
+    if(outOfBounds(car.pos) && Math.random() < dt*2.0){
+      owned.condition = Math.max(10, owned.condition - 1);
+      $("cond").textContent = owned.condition;
+    }
+  }
+
+  // --------------------------
+  // Inputs (keyboard + joystick)
+  // --------------------------
+  const keys = {};
+  window.addEventListener("keydown",(e)=>{ keys[e.key.toLowerCase()] = true; if(e.key.toLowerCase()==="e") interact(); });
+  window.addEventListener("keyup",(e)=>{ keys[e.key.toLowerCase()] = false; });
+
+  const input = {x:0,y:0};
+  const joy=$("joy"), stick=$("stick");
+  let joyActive=false, joyId=null, joyCX=0, joyCY=0;
+
+  function setStick(dx,dy){
+    const r=60;
+    const mag=Math.hypot(dx,dy);
+    if(mag>r){ dx=dx/mag*r; dy=dy/mag*r; }
+    stick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    input.x = dx/r; // steer
+    input.y = dy/r; // throttle (down is +)
+  }
+  joy?.addEventListener("pointerdown",(e)=>{
+    joyActive=true; joyId=e.pointerId; joy.setPointerCapture(joyId);
+    const rect=joy.getBoundingClientRect(); joyCX=rect.left+rect.width/2; joyCY=rect.top+rect.height/2;
+    setStick(e.clientX-joyCX, e.clientY-joyCY);
+  });
+  joy?.addEventListener("pointermove",(e)=>{ if(!joyActive || e.pointerId!==joyId) return; setStick(e.clientX-joyCX, e.clientY-joyCY); });
+  function endJoy(){ joyActive=false; joyId=null; setStick(0,0); }
+  joy?.addEventListener("pointerup", endJoy);
+  joy?.addEventListener("pointercancel", endJoy);
+
+  // --------------------------
+  // Interact (calm sandbox)
+  // --------------------------
+  function interact(){
+    const z = currentZone();
+    $("zoneHud").textContent = z ?? "—";
+    if(!z) return toast("Go into a zone first.");
+    if(z==="STEAL") return stealCar();
+    if(z==="CHOP") return chopSelected();
+    if(z==="DEALER") return toast("Open Menu → Dealership to buy cars.");
+    if(z==="HOUSE") return toast("Open Menu → Garage to manage cars.");
+  }
+
+  // --------------------------
+  // UI events
+  // --------------------------
+  let drawerOpen=true;
+  $("toggleDrawer").onclick=()=>{ drawerOpen=!drawerOpen; $("drawer").style.display = drawerOpen ? "block" : "none"; };
+
+  $("search").addEventListener("input", renderDealer);
+  $("tier").addEventListener("change", renderDealer);
+
+  $("steal").onclick = stealCar;
+  $("chop").onclick = chopSelected;
+  $("quickJob").onclick = doJob;
+
+  $("upgrade").onclick = upgradeGarage;
+  $("save").onclick = save;
+  $("reset").onclick = reset;
+  $("travel").onclick = travel;
+
+  $("act").onclick = interact;
+  $("job").onclick = doJob;
+  $("repair").onclick = ()=>{ repair(); ensureCarMesh(); };
+
+  // autosave
+  setInterval(()=>localStorage.setItem("worldshift3d_calm", JSON.stringify(state)), 9000);
+
+  // --------------------------
+  // Loop
+  // --------------------------
+  const clock = new THREE.Clock();
+
+  function tick(){
+    const dt = Math.min(0.033, clock.getDelta());
+    const stats = carStats();
+
+    const left = keys["a"] || keys["arrowleft"];
+    const right = keys["d"] || keys["arrowright"];
+    const fwd = keys["w"] || keys["arrowup"];
+    const back = keys["s"] || keys["arrowdown"];
+    const brake = keys[" "] || keys["space"];
+
+    const steerInput = ((right?1:0) - (left?1:0)) + input.x;
+    const throttleInput = ((fwd?1:0) - (back?1:0)) - input.y;
+
+    const speedFactor = clamp(Math.abs(car.speed)/(stats.maxSpeed*0.6), 0.1, 1.0);
+    car.heading -= steerInput * stats.turnRate * speedFactor * dt;
+
+    if(brake){
+      const sign = Math.sign(car.speed);
+      car.speed -= sign * stats.brake * dt;
+      if(Math.sign(car.speed) !== sign) car.speed = 0;
+    } else {
+      car.speed += throttleInput * stats.accel * dt;
+    }
+
+    // drag (arcade)
+    car.speed *= Math.pow(0.25, dt);
+    car.speed = clamp(car.speed, -stats.maxSpeed*0.45, stats.maxSpeed);
+
+    const forward = new THREE.Vector3(Math.sin(car.heading), 0, Math.cos(car.heading));
+    car.pos.addScaledVector(forward, car.speed * dt);
+    car.pos.y = 0.35;
+
+    // soft bounds
+    const bound = 310;
+    if(Math.abs(car.pos.x)>bound){ car.pos.x = clamp(car.pos.x,-bound,bound); car.speed *= 0.7; }
+    if(Math.abs(car.pos.z)>bound){ car.pos.z = clamp(car.pos.z,-bound,bound); car.speed *= 0.7; }
+
+    // wear
+    maybeWear(dt);
+
+    // zone hud
+    const z = currentZone();
+    $("zoneHud").textContent = z ?? "—";
+
+    // update car mesh
+    if(car.mesh){
+      car.mesh.position.copy(car.pos);
+      car.mesh.rotation.y = car.heading;
+    }
+
+    // chase camera
+    const camBack = new THREE.Vector3(Math.sin(car.heading), 0, Math.cos(car.heading)).multiplyScalar(-10);
+    const camUp = new THREE.Vector3(0, 5.5, 0);
+    const camTarget = car.pos.clone().add(new THREE.Vector3(0, 1.2, 0));
+    const desiredPos = car.pos.clone().add(camBack).add(camUp);
+
+    camera.position.lerp(desiredPos, 0.12);
+    camera.lookAt(camTarget);
+
+    // HUD speed (mph-ish)
+    $("speed").textContent = String(Math.floor(Math.abs(car.speed) * 6));
+
+    renderer.render(scene, camera);
+    requestAnimationFrame(tick);
+  }
+
+  function onResize(){
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+  window.addEventListener("resize", onResize);
+
+  // Start
+  renderAll();
+  requestAnimationFrame(tick);
+
+})();
+</script>
+</body>
+</html>
