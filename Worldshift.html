@@ -1,0 +1,1035 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>WorldShift: Auto Empire (Single-File Prototype)</title>
+  <style>
+    :root { --bg:#0b0f14; --panel:#111826; --muted:#9aa4b2; --text:#e6edf3; --accent:#4da3ff; --good:#40c463; --bad:#ff5c5c; --warn:#ffcc66; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+           background: radial-gradient(1200px 600px at 20% 0%, #12213a 0%, var(--bg) 55%);
+           color: var(--text); }
+    header { padding:14px 16px; border-bottom:1px solid rgba(255,255,255,.08); display:flex; gap:12px; align-items:center; }
+    header h1 { font-size:16px; margin:0; letter-spacing:.4px; }
+    header .pill { font-size:12px; padding:4px 10px; border:1px solid rgba(255,255,255,.14); border-radius:999px; color:var(--muted); }
+    main { display:grid; grid-template-columns: 360px 1fr 420px; gap:12px; padding:12px; }
+    .panel { background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+             border:1px solid rgba(255,255,255,.10); border-radius:14px; overflow:hidden; }
+    .panel h2 { margin:0; padding:12px 12px; font-size:13px; letter-spacing:.35px; color:#d7e2ee;
+                border-bottom:1px solid rgba(255,255,255,.08); display:flex; justify-content:space-between; align-items:center; }
+    .panel .content { padding:12px; }
+    .row { display:flex; gap:10px; flex-wrap:wrap; }
+    .stat { background:rgba(0,0,0,.25); border:1px solid rgba(255,255,255,.10); border-radius:12px; padding:10px; flex:1; min-width:120px; }
+    .stat .k { font-size:11px; color:var(--muted); }
+    .stat .v { font-size:16px; margin-top:4px; }
+    .btn { cursor:pointer; border:1px solid rgba(255,255,255,.16); background:rgba(0,0,0,.28);
+           color:var(--text); padding:10px 12px; border-radius:12px; font-size:13px; display:inline-flex; align-items:center; gap:8px; }
+    .btn:hover { border-color: rgba(77,163,255,.55); box-shadow: 0 0 0 3px rgba(77,163,255,.12); }
+    .btn.primary { background: linear-gradient(180deg, rgba(77,163,255,.35), rgba(77,163,255,.15));
+                   border-color: rgba(77,163,255,.55); }
+    .btn.good { background: linear-gradient(180deg, rgba(64,196,99,.35), rgba(64,196,99,.12));
+                border-color: rgba(64,196,99,.55); }
+    .btn.bad { background: linear-gradient(180deg, rgba(255,92,92,.35), rgba(255,92,92,.12));
+               border-color: rgba(255,92,92,.55); }
+    .btn.small { padding:8px 10px; font-size:12px; border-radius:10px; }
+    .muted { color:var(--muted); }
+    .divider { height:1px; background:rgba(255,255,255,.08); margin:10px 0; }
+    .list { display:flex; flex-direction:column; gap:8px; max-height: 420px; overflow:auto; padding-right:4px; }
+    .card { background:rgba(0,0,0,.22); border:1px solid rgba(255,255,255,.10); border-radius:12px; padding:10px; }
+    .card .top { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+    .tag { font-size:11px; padding:2px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.14); color:var(--muted); }
+    .tag.tierD { border-color: rgba(154,164,178,.40); }
+    .tag.tierC { border-color: rgba(77,163,255,.35); color:#b9dcff; }
+    .tag.tierB { border-color: rgba(255,204,102,.40); color:#ffe3b0; }
+    .tag.tierA { border-color: rgba(194,102,255,.40); color:#e8c9ff; }
+    .tag.tierS { border-color: rgba(64,196,99,.45); color:#bdf2c8; }
+    .price { font-variant-numeric: tabular-nums; }
+    canvas { width:100%; height:100%; display:block; background:#070b10; }
+    .canvasWrap { position:relative; height: 640px; }
+    .hud { position:absolute; left:10px; top:10px; display:flex; gap:8px; flex-wrap:wrap; }
+    .hud .chip { background:rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.14); padding:6px 10px; border-radius:999px; font-size:12px; }
+    .toast { position:fixed; left:50%; bottom:18px; transform:translateX(-50%);
+             background:rgba(0,0,0,.65); border:1px solid rgba(255,255,255,.16);
+             padding:10px 14px; border-radius:999px; font-size:13px; display:none; max-width: 92vw; }
+    .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .kbd { font-family: ui-monospace; font-size:12px; padding:2px 6px; border-radius:6px; border:1px solid rgba(255,255,255,.18); background:rgba(0,0,0,.25); }
+    select, input { background:rgba(0,0,0,.28); color:var(--text); border:1px solid rgba(255,255,255,.16); border-radius:10px; padding:8px 10px; }
+    .right { text-align:right; }
+    @media (max-width: 1200px) { main { grid-template-columns: 1fr; } .canvasWrap { height:520px; } }
+  </style>
+</head>
+<body>
+<header>
+  <h1>WorldShift: Auto Empire <span class="pill">Single-file prototype</span></h1>
+  <div class="pill">Drive: <span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span> / <span class="kbd">↑</span><span class="kbd">←</span><span class="kbd">↓</span><span class="kbd">→</span></div>
+  <div class="pill">Actions: <span class="kbd">E</span> interact • <span class="kbd">R</span> repair</div>
+</header>
+
+<main>
+  <!-- Left: Player / House / Garage -->
+  <section class="panel">
+    <h2>
+      Home & Garage
+      <span class="tag" id="cityTag">City: NYC</span>
+    </h2>
+    <div class="content">
+      <div class="row">
+        <div class="stat">
+          <div class="k">Money</div>
+          <div class="v price" id="money">$0</div>
+        </div>
+        <div class="stat">
+          <div class="k">Garage slots</div>
+          <div class="v" id="slots">10 / 10</div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <button class="btn primary" id="upgradeBtn">Upgrade Garage (+10 slots)</button>
+        <button class="btn" id="saveBtn">Save</button>
+        <button class="btn" id="resetBtn">Reset</button>
+      </div>
+      <div class="divider"></div>
+
+      <div class="grid2">
+        <div class="card">
+          <div class="top">
+            <div>
+              <div class="muted" style="font-size:11px;">Current Car</div>
+              <div id="currentCarName" style="font-weight:700; margin-top:4px;">None</div>
+              <div class="muted" id="currentCarMeta" style="margin-top:4px; font-size:12px;">—</div>
+            </div>
+            <span class="tag" id="currentTier">—</span>
+          </div>
+          <div class="divider"></div>
+          <div class="row">
+            <button class="btn small" id="repairBtn">Repair (R)</button>
+            <button class="btn small" id="setHomeBtn">Teleport to House</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="muted" style="font-size:11px;">Quick Jobs</div>
+          <div style="font-weight:700; margin-top:4px;">Make money (legal)</div>
+          <div class="muted" style="margin-top:6px; font-size:12px;">
+            Do short deliveries, time trials, or rideshare runs. Low risk, steady cash.
+          </div>
+          <div class="divider"></div>
+          <div class="row">
+            <button class="btn good small" id="deliveryBtn">Delivery (+$250)</button>
+            <button class="btn good small" id="timeTrialBtn">Time Trial (+$400)</button>
+            <button class="btn good small" id="rideshareBtn">Rideshare (+$180)</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <h3 style="margin:0 0 8px 0; font-size:13px; color:#d7e2ee;">Your Garage</h3>
+      <div class="list" id="garageList"></div>
+      <div class="muted" style="font-size:12px; margin-top:8px;">
+        Tip: You can steal cars, but heat goes up fast. Use “Repair” after rough escapes.
+      </div>
+    </div>
+  </section>
+
+  <!-- Middle: Canvas World -->
+  <section class="panel">
+    <h2>
+      World
+      <span class="muted" style="font-size:12px;">House + Dealership + Chop Shop + Steal Zone</span>
+    </h2>
+    <div class="content">
+      <div class="canvasWrap">
+        <canvas id="game" width="1100" height="700"></canvas>
+        <div class="hud">
+          <div class="chip">Heat: <span id="heat">0</span>/5</div>
+          <div class="chip">Speed: <span id="speed">0</span></div>
+          <div class="chip">Condition: <span id="cond">100</span>%</div>
+          <div class="chip">Interact: <span class="kbd">E</span></div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <label class="muted" style="font-size:12px;">City</label>
+        <select id="citySelect">
+          <option value="NYC">NYC</option>
+          <option value="Los Angeles">Los Angeles</option>
+          <option value="London">London</option>
+          <option value="Paris">Paris</option>
+          <option value="Rome">Rome</option>
+          <option value="Tokyo">Tokyo</option>
+        </select>
+        <button class="btn small" id="travelBtn">Travel</button>
+        <span class="muted" style="font-size:12px;">(Cities are separate “world instances” in this prototype)</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Right: Dealership + Steal + Economy -->
+  <section class="panel">
+    <h2>
+      Market & Crime
+      <span class="muted" style="font-size:12px;">Buy / Steal / Chop</span>
+    </h2>
+    <div class="content">
+      <div class="card">
+        <div class="top">
+          <div>
+            <div style="font-weight:700;">Dealership</div>
+            <div class="muted" style="font-size:12px; margin-top:2px;">Buy cars with cash (adds to garage if slots allow).</div>
+          </div>
+          <span class="tag">Legal</span>
+        </div>
+        <div class="divider"></div>
+
+        <div class="row" style="align-items:center;">
+          <input id="search" placeholder="Search brand/model..." style="flex:1;" />
+          <select id="tierFilter">
+            <option value="ALL">All tiers</option>
+            <option value="D">Tier D</option>
+            <option value="C">Tier C</option>
+            <option value="B">Tier B</option>
+            <option value="A">Tier A</option>
+            <option value="S">Tier S</option>
+          </select>
+        </div>
+
+        <div class="divider"></div>
+        <div class="list" id="dealerList" style="max-height: 330px;"></div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="grid2">
+        <div class="card">
+          <div class="top">
+            <div>
+              <div style="font-weight:700;">Steal Zone</div>
+              <div class="muted" style="font-size:12px; margin-top:2px;">High risk, random reward.</div>
+            </div>
+            <span class="tag" style="border-color: rgba(255,92,92,.45); color:#ffb5b5;">Illegal</span>
+          </div>
+          <div class="divider"></div>
+          <button class="btn bad" id="stealBtn">Steal a Random Car</button>
+          <div class="muted" style="font-size:12px; margin-top:8px;">
+            Chance to get caught increases with Heat and with better cars.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="top">
+            <div>
+              <div style="font-weight:700;">Chop Shop</div>
+              <div class="muted" style="font-size:12px; margin-top:2px;">Scrap a car for quick cash.</div>
+            </div>
+            <span class="tag">Shady</span>
+          </div>
+          <div class="divider"></div>
+          <button class="btn" id="chopBtn">Chop Selected Car</button>
+          <div class="muted" style="font-size:12px; margin-top:8px;">
+            Select a car in your garage, then chop it. Better cars = more cash.
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="card">
+        <div style="font-weight:700;">Garage Upgrade Rules</div>
+        <div class="muted" style="font-size:12px; margin-top:6px;">
+          Start with <b>10 slots</b>. Each upgrade adds <b>+10 slots</b>. Cost scales each time.
+        </div>
+        <div class="divider"></div>
+        <div class="muted mono" style="font-size:12px; line-height:1.45;">
+          Upgrade cost = 5,000 × (currentUpgradeLevel + 1)<br/>
+          Example: L1 = $5,000 • L2 = $10,000 • L3 = $15,000 …
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  // ---------------------------
+  // Data: car catalog (prototype)
+  // Note: Real brand/model names are fine for a prototype; commercial release typically needs licensing.
+  // ---------------------------
+  const CARS = [
+    // Ford
+    {brand:"Ford", model:"F-150 (OG)", tier:"D", price:1200, top:95, accel:5.5, handling:45},
+    {brand:"Ford", model:"Mustang GT", tier:"B", price:38000, top:155, accel:3.9, handling:68},
+
+    // Chevrolet
+    {brand:"Chevrolet", model:"Impala (Used)", tier:"D", price:1800, top:105, accel:5.8, handling:48},
+    {brand:"Chevrolet", model:"Corvette C8", tier:"A", price:89000, top:194, accel:2.9, handling:80},
+
+    // Dodge
+    {brand:"Dodge", model:"Charger R/T", tier:"B", price:42000, top:155, accel:4.1, handling:62},
+    {brand:"Dodge", model:"Challenger Hellcat", tier:"A", price:78000, top:199, accel:3.5, handling:60},
+
+    // Tesla
+    {brand:"Tesla", model:"Model 3 Performance", tier:"B", price:52000, top:162, accel:3.1, handling:74},
+    {brand:"Tesla", model:"Model S Plaid", tier:"A", price:90000, top:200, accel:2.0, handling:78},
+
+    // Toyota
+    {brand:"Toyota", model:"Corolla", tier:"C", price:23000, top:112, accel:6.2, handling:55},
+    {brand:"Toyota", model:"Supra", tier:"A", price:56000, top:155, accel:3.9, handling:78},
+
+    // Honda
+    {brand:"Honda", model:"Civic", tier:"C", price:24000, top:120, accel:6.0, handling:60},
+    {brand:"Honda", model:"Civic Type R", tier:"B", price:45000, top:171, accel:4.9, handling:77},
+
+    // Nissan
+    {brand:"Nissan", model:"Sentra", tier:"C", price:22000, top:115, accel:6.4, handling:54},
+    {brand:"Nissan", model:"GT-R", tier:"A", price:120000, top:196, accel:2.7, handling:79},
+
+    // BMW
+    {brand:"BMW", model:"330i", tier:"B", price:47000, top:155, accel:4.9, handling:72},
+    {brand:"BMW", model:"M3", tier:"A", price:78000, top:180, accel:3.8, handling:82},
+
+    // Mercedes
+    {brand:"Mercedes-Benz", model:"C300", tier:"B", price:48000, top:130, accel:5.2, handling:70},
+    {brand:"Mercedes-Benz", model:"C63 AMG", tier:"A", price:92000, top:180, accel:3.6, handling:78},
+
+    // Audi
+    {brand:"Audi", model:"A4", tier:"B", price:46000, top:130, accel:5.1, handling:72},
+    {brand:"Audi", model:"R8", tier:"A", price:170000, top:205, accel:3.0, handling:84},
+
+    // Porsche
+    {brand:"Porsche", model:"718 Cayman", tier:"A", price:76000, top:171, accel:4.5, handling:86},
+    {brand:"Porsche", model:"911 Carrera", tier:"A", price:115000, top:182, accel:3.7, handling:88},
+
+    // Ferrari
+    {brand:"Ferrari", model:"488", tier:"S", price:280000, top:205, accel:2.9, handling:90},
+    {brand:"Ferrari", model:"SF90 Stradale", tier:"S", price:520000, top:211, accel:2.4, handling:92},
+
+    // Lamborghini
+    {brand:"Lamborghini", model:"Huracán", tier:"S", price:260000, top:202, accel:2.9, handling:88},
+    {brand:"Lamborghini", model:"Aventador", tier:"S", price:420000, top:217, accel:2.8, handling:86},
+
+    // McLaren
+    {brand:"McLaren", model:"720S", tier:"S", price:310000, top:212, accel:2.8, handling:92},
+    {brand:"McLaren", model:"P1", tier:"S", price:1200000, top:217, accel:2.6, handling:94},
+
+    // Bugatti
+    {brand:"Bugatti", model:"Veyron", tier:"S", price:1400000, top:253, accel:2.5, handling:85},
+    {brand:"Bugatti", model:"Chiron", tier:"S", price:3000000, top:261, accel:2.4, handling:86},
+
+    // Koenigsegg
+    {brand:"Koenigsegg", model:"Agera RS", tier:"S", price:2500000, top:277, accel:2.6, handling:88},
+    {brand:"Koenigsegg", model:"Jesko", tier:"S", price:3200000, top:300, accel:2.3, handling:90},
+  ];
+
+  // "Popular brand" expansion note:
+  // This prototype includes a subset. You can expand CARS with 2+ per brand easily.
+
+  const CITY_THEMES = {
+    "NYC": { roads: "#1a2a45", accent: "#4da3ff" },
+    "Los Angeles": { roads: "#2a1a1a", accent: "#ffcc66" },
+    "London": { roads: "#1f2a2a", accent: "#40c463" },
+    "Paris": { roads: "#2a1f2a", accent: "#c266ff" },
+    "Rome": { roads: "#2a241a", accent: "#ff9f6a" },
+    "Tokyo": { roads: "#1a1a2a", accent: "#7aa2ff" }
+  };
+
+  // ---------------------------
+  // State
+  // ---------------------------
+  const defaultState = () => ({
+    money: 500,                 // start with a little cash
+    city: "NYC",
+    garageSlots: 10,
+    upgradeLevel: 0,
+    heat: 0,
+    garage: [],
+    selectedGarageId: null,
+    currentCarId: null,
+    player: { x: 160, y: 520, vx:0, vy:0 }
+  });
+
+  let state = load() ?? defaultState();
+
+  // ---------------------------
+  // Helpers
+  // ---------------------------
+  const $ = (id) => document.getElementById(id);
+  const fmt = (n) => "$" + Math.max(0, Math.floor(n)).toLocaleString();
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const uid = () => Math.random().toString(16).slice(2) + Date.now().toString(16);
+  const tierTagClass = (t) => "tier" + t;
+
+  function toast(msg, ms=2200) {
+    const el = $("toast");
+    el.textContent = msg;
+    el.style.display = "block";
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => el.style.display = "none", ms);
+  }
+
+  function save() {
+    localStorage.setItem("worldshift_singlefile", JSON.stringify(state));
+    toast("Saved!");
+  }
+  function load() {
+    try {
+      const raw = localStorage.getItem("worldshift_singlefile");
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  }
+
+  function reset() {
+    state = defaultState();
+    localStorage.removeItem("worldshift_singlefile");
+    toast("Reset complete.");
+    renderAll();
+  }
+
+  function addMoney(amount) {
+    state.money = Math.max(0, state.money + amount);
+    renderTopStats();
+  }
+
+  function setHeat(h) {
+    state.heat = clamp(h, 0, 5);
+    $("heat").textContent = state.heat;
+  }
+
+  function upgradeCost() {
+    return 5000 * (state.upgradeLevel + 1);
+  }
+
+  function canAddCar() {
+    return state.garage.length < state.garageSlots;
+  }
+
+  function createOwnedCar(carDef, source) {
+    // Condition affects speed/handling a bit in the driving feel
+    const baseCond = source === "stolen" ? (60 + Math.random()*25) : (85 + Math.random()*15);
+    return {
+      id: uid(),
+      brand: carDef.brand,
+      model: carDef.model,
+      tier: carDef.tier,
+      price: carDef.price,
+      top: carDef.top,
+      accel: carDef.accel,
+      handling: carDef.handling,
+      condition: Math.round(baseCond),
+      source,
+      cityFound: state.city
+    };
+  }
+
+  function setCurrentCar(id) {
+    state.currentCarId = id;
+    renderCurrentCar();
+  }
+
+  function selectedCar() {
+    return state.garage.find(c => c.id === state.selectedGarageId) || null;
+  }
+
+  // ---------------------------
+  // UI rendering
+  // ---------------------------
+  function renderTopStats() {
+    $("money").textContent = fmt(state.money);
+    $("slots").textContent = `${state.garage.length} / ${state.garageSlots}`;
+    $("cityTag").textContent = `City: ${state.city}`;
+    $("citySelect").value = state.city;
+    $("upgradeBtn").textContent = `Upgrade Garage (+10 slots) — ${fmt(upgradeCost())}`;
+  }
+
+  function renderGarage() {
+    const list = $("garageList");
+    list.innerHTML = "";
+
+    if (state.garage.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "card muted";
+      empty.textContent = "Your garage is empty. Buy a car or steal one.";
+      list.appendChild(empty);
+      state.selectedGarageId = null;
+      if (!state.currentCarId) renderCurrentCar();
+      return;
+    }
+
+    state.garage.forEach(c => {
+      const card = document.createElement("div");
+      card.className = "card";
+      card.style.borderColor = (c.id === state.selectedGarageId) ? "rgba(77,163,255,.65)" : "rgba(255,255,255,.10)";
+
+      const top = document.createElement("div");
+      top.className = "top";
+
+      const left = document.createElement("div");
+      left.innerHTML = `
+        <div style="font-weight:800">${c.brand} ${c.model}</div>
+        <div class="muted" style="font-size:12px; margin-top:4px;">
+          Tier ${c.tier} • Cond ${c.condition}% • ${c.source} • Found: ${c.cityFound}
+        </div>
+      `;
+
+      const right = document.createElement("div");
+      right.style.display = "flex";
+      right.style.flexDirection = "column";
+      right.style.gap = "6px";
+      right.style.alignItems = "flex-end";
+      right.innerHTML = `
+        <span class="tag ${tierTagClass(c.tier)}">Tier ${c.tier}</span>
+        <span class="muted price" style="font-size:12px;">Val ~ ${fmt(Math.round(c.price * (0.4 + c.condition/200)))}</span>
+      `;
+
+      top.appendChild(left);
+      top.appendChild(right);
+
+      const controls = document.createElement("div");
+      controls.className = "row";
+      controls.style.marginTop = "10px";
+
+      const selectBtn = document.createElement("button");
+      selectBtn.className = "btn small";
+      selectBtn.textContent = (c.id === state.currentCarId) ? "Driving" : "Drive This";
+      selectBtn.onclick = () => { state.selectedGarageId = c.id; setCurrentCar(c.id); renderGarage(); };
+
+      const pickBtn = document.createElement("button");
+      pickBtn.className = "btn small";
+      pickBtn.textContent = "Select";
+      pickBtn.onclick = () => { state.selectedGarageId = c.id; renderGarage(); };
+
+      controls.appendChild(pickBtn);
+      controls.appendChild(selectBtn);
+
+      card.appendChild(top);
+      card.appendChild(controls);
+
+      card.onclick = (e) => {
+        // avoid double triggering when clicking buttons
+        if (e.target.tagName.toLowerCase() === "button") return;
+        state.selectedGarageId = c.id;
+        renderGarage();
+      };
+
+      list.appendChild(card);
+    });
+
+    // Ensure current car exists
+    if (state.currentCarId && !state.garage.some(c => c.id === state.currentCarId)) {
+      state.currentCarId = null;
+    }
+    if (!state.currentCarId && state.garage.length) {
+      state.currentCarId = state.garage[0].id;
+    }
+    renderCurrentCar();
+  }
+
+  function renderCurrentCar() {
+    const car = state.garage.find(c => c.id === state.currentCarId) || null;
+    if (!car) {
+      $("currentCarName").textContent = "None";
+      $("currentCarMeta").textContent = "Buy or steal a car to start driving.";
+      $("currentTier").textContent = "—";
+      $("cond").textContent = "100";
+      return;
+    }
+    $("currentCarName").textContent = `${car.brand} ${car.model}`;
+    $("currentCarMeta").textContent = `Tier ${car.tier} • Top ${car.top} • Handling ${car.handling} • Condition ${car.condition}%`;
+    $("currentTier").textContent = `Tier ${car.tier}`;
+    $("currentTier").className = `tag ${tierTagClass(car.tier)}`;
+    $("cond").textContent = car.condition;
+  }
+
+  function renderDealer() {
+    const q = $("search").value.trim().toLowerCase();
+    const tf = $("tierFilter").value;
+    const list = $("dealerList");
+    list.innerHTML = "";
+
+    const filtered = CARS.filter(c => {
+      const text = `${c.brand} ${c.model}`.toLowerCase();
+      const okQ = !q || text.includes(q);
+      const okT = (tf === "ALL") || (c.tier === tf);
+      return okQ && okT;
+    });
+
+    if (filtered.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "card muted";
+      empty.textContent = "No matches. Try a different search.";
+      list.appendChild(empty);
+      return;
+    }
+
+    filtered.forEach(c => {
+      const card = document.createElement("div");
+      card.className = "card";
+      const top = document.createElement("div");
+      top.className = "top";
+
+      const left = document.createElement("div");
+      left.innerHTML = `
+        <div style="font-weight:800">${c.brand} ${c.model}</div>
+        <div class="muted" style="font-size:12px; margin-top:4px;">
+          Top ${c.top} • 0-60 ~ ${c.accel}s • Handling ${c.handling}
+        </div>
+      `;
+
+      const right = document.createElement("div");
+      right.style.display = "flex";
+      right.style.flexDirection = "column";
+      right.style.alignItems = "flex-end";
+      right.style.gap = "6px";
+
+      const tag = document.createElement("span");
+      tag.className = `tag ${tierTagClass(c.tier)}`;
+      tag.textContent = `Tier ${c.tier}`;
+
+      const price = document.createElement("div");
+      price.className = "price";
+      price.style.fontSize = "12px";
+      price.style.color = "#cfe7ff";
+      price.textContent = fmt(c.price);
+
+      const buy = document.createElement("button");
+      buy.className = "btn small primary";
+      buy.textContent = "Buy";
+      buy.onclick = () => buyCar(c);
+
+      right.appendChild(tag);
+      right.appendChild(price);
+      right.appendChild(buy);
+
+      top.appendChild(left);
+      top.appendChild(right);
+
+      card.appendChild(top);
+      list.appendChild(card);
+    });
+  }
+
+  function renderAll() {
+    renderTopStats();
+    renderGarage();
+    renderDealer();
+    applyCityTheme();
+  }
+
+  function applyCityTheme() {
+    const theme = CITY_THEMES[state.city] || CITY_THEMES["NYC"];
+    document.documentElement.style.setProperty("--accent", theme.accent);
+  }
+
+  // ---------------------------
+  // Actions: buy/steal/chop/upgrade
+  // ---------------------------
+  function buyCar(carDef) {
+    if (!canAddCar()) return toast("Garage full. Upgrade garage to add more slots.");
+    if (state.money < carDef.price) return toast("Not enough money.");
+    addMoney(-carDef.price);
+    const owned = createOwnedCar(carDef, "bought");
+    state.garage.push(owned);
+    state.selectedGarageId = owned.id;
+    setCurrentCar(owned.id);
+    toast(`Bought: ${owned.brand} ${owned.model}`);
+    renderGarage();
+    renderTopStats();
+  }
+
+  function stealCar() {
+    if (!canAddCar()) return toast("Garage full. Upgrade garage to add more slots.");
+
+    // Weighted: higher tiers are rarer to steal
+    // (still possible to get a Jesko, just very rare and very risky)
+    const weights = { D: 50, C: 32, B: 14, A: 3.5, S: 0.8 };
+    const pool = [];
+    for (const c of CARS) {
+      const w = weights[c.tier] || 1;
+      pool.push([c, w]);
+    }
+    const pick = weightedPick(pool);
+
+    // Chance to get caught: depends on heat + tier
+    const tierRisk = { D: 0.12, C: 0.18, B: 0.28, A: 0.42, S: 0.58 }[pick.tier] ?? 0.2;
+    const heatRisk = state.heat * 0.08;
+    const caughtChance = clamp(tierRisk + heatRisk, 0.08, 0.90);
+
+    if (Math.random() < caughtChance) {
+      // caught: lose some money as "fine" and heat spikes
+      const fine = Math.min(state.money, 250 + Math.floor(Math.random()*600) + state.heat*200);
+      addMoney(-fine);
+      setHeat(state.heat + 2);
+      toast(`Caught! You paid ${fmt(fine)} and your heat increased.`);
+      return;
+    }
+
+    const owned = createOwnedCar(pick, "stolen");
+    state.garage.push(owned);
+    state.selectedGarageId = owned.id;
+    setCurrentCar(owned.id);
+
+    // Heat increases more for better cars
+    const heatGain = { D: 1, C: 1, B: 2, A: 2, S: 3 }[pick.tier] ?? 1;
+    setHeat(state.heat + heatGain);
+
+    toast(`Stole: ${owned.brand} ${owned.model} (Heat +${heatGain})`);
+    renderGarage();
+    renderTopStats();
+  }
+
+  function chopSelected() {
+    const car = selectedCar();
+    if (!car) return toast("Select a car in your garage first.");
+    // Payout based on value and condition, with stolen cars slightly better for chop
+    const base = car.price * (0.22 + car.condition/300);
+    const bonus = (car.source === "stolen") ? 1.15 : 1.0;
+    const payout = Math.max(200, Math.floor(base * bonus));
+    addMoney(payout);
+    // Remove car
+    state.garage = state.garage.filter(x => x.id !== car.id);
+    if (state.currentCarId === car.id) state.currentCarId = state.garage[0]?.id ?? null;
+    state.selectedGarageId = state.garage[0]?.id ?? null;
+
+    // heat down a bit (you "moved product")
+    setHeat(state.heat - 1);
+
+    toast(`Chopped: ${car.brand} ${car.model} for ${fmt(payout)} (Heat -1)`);
+    renderGarage();
+    renderTopStats();
+  }
+
+  function upgradeGarage() {
+    const cost = upgradeCost();
+    if (state.money < cost) return toast(`Need ${fmt(cost)} to upgrade.`);
+    addMoney(-cost);
+    state.upgradeLevel += 1;
+    state.garageSlots += 10;
+    toast(`Garage upgraded! Slots are now ${state.garageSlots}.`);
+    renderTopStats();
+  }
+
+  function repairCurrent() {
+    const car = state.garage.find(c => c.id === state.currentCarId);
+    if (!car) return toast("No car to repair.");
+    const missing = 100 - car.condition;
+    if (missing <= 0) return toast("Car is already at 100% condition.");
+
+    const cost = Math.max(100, Math.floor((car.price * 0.002) * (missing/20)));
+    if (state.money < cost) return toast(`Repair costs ${fmt(cost)}. Not enough money.`);
+    addMoney(-cost);
+    car.condition = 100;
+    toast(`Repaired for ${fmt(cost)}.`);
+    renderCurrentCar();
+  }
+
+  function travelToCity(city) {
+    state.city = city;
+    // reset player position to house on travel
+    state.player.x = 160;
+    state.player.y = 520;
+    setHeat(Math.max(0, state.heat - 1));
+    toast(`Traveled to ${city}. (Heat -1)`);
+    renderAll();
+  }
+
+  function weightedPick(pairs) {
+    const total = pairs.reduce((s, [,w]) => s+w, 0);
+    let r = Math.random() * total;
+    for (const [item, w] of pairs) { r -= w; if (r <= 0) return item; }
+    return pairs[pairs.length-1][0];
+  }
+
+  // ---------------------------
+  // Simple top-down driving game
+  // ---------------------------
+  const canvas = $("game");
+  const ctx = canvas.getContext("2d");
+
+  const WORLD = {
+    w: canvas.width,
+    h: canvas.height,
+    // zones (rects)
+    house:   { x: 80,  y: 480, w: 200, h: 160, name: "House / Garage" },
+    dealer:  { x: 820, y: 80,  w: 220, h: 140, name: "Dealership" },
+    chop:    { x: 820, y: 260, w: 220, h: 140, name: "Chop Shop" },
+    steal:   { x: 820, y: 440, w: 220, h: 200, name: "Steal Zone" },
+    roads: [
+      { x: 0, y: 330, w: 1100, h: 70 },
+      { x: 430, y: 0, w: 80, h: 700 }
+    ],
+    obstacles: [
+      { x: 320, y: 470, w: 90, h: 50 },
+      { x: 520, y: 120, w: 110, h: 60 },
+      { x: 170, y: 220, w: 110, h: 80 },
+      { x: 600, y: 520, w: 140, h: 60 },
+    ]
+  };
+
+  let keys = {};
+  window.addEventListener("keydown", (e) => {
+    keys[e.key.toLowerCase()] = true;
+
+    if (e.key.toLowerCase() === "e") interact();
+    if (e.key.toLowerCase() === "r") repairCurrent();
+  });
+  window.addEventListener("keyup", (e) => keys[e.key.toLowerCase()] = false);
+
+  function interact() {
+    const p = state.player;
+    const zone = getZone(p.x, p.y);
+
+    if (!zone) return;
+
+    if (zone === "steal") {
+      stealCar();
+    } else if (zone === "dealer") {
+      toast("Dealership: use the list on the right to buy cars.");
+    } else if (zone === "chop") {
+      chopSelected();
+    } else if (zone === "house") {
+      toast("Home: manage your garage on the left.");
+    }
+  }
+
+  function getZone(x,y) {
+    const z = WORLD;
+    if (inside(x,y,z.house)) return "house";
+    if (inside(x,y,z.dealer)) return "dealer";
+    if (inside(x,y,z.chop)) return "chop";
+    if (inside(x,y,z.steal)) return "steal";
+    return null;
+  }
+
+  function inside(x,y,r) {
+    return x >= r.x && x <= r.x+r.w && y >= r.y && y <= r.y+r.h;
+  }
+
+  function update(dt) {
+    const car = state.garage.find(c => c.id === state.currentCarId) || null;
+    const p = state.player;
+
+    // movement parameters influenced by car
+    const baseMax = 220;
+    const baseAcc = 520;
+
+    let maxSpeed = 140;
+    let accel = 380;
+    let handling = 55;
+
+    if (car) {
+      // Condition reduces performance
+      const cond = car.condition / 100;
+      maxSpeed = clamp((car.top/300) * baseMax * (0.65 + 0.35*cond), 80, 260);
+      accel = clamp((1 / car.accel) * baseAcc * (0.70 + 0.30*cond), 240, 650);
+      handling = clamp(car.handling * (0.70 + 0.30*cond), 35, 95);
+    }
+
+    const turn = handling / 100;
+
+    let ax = 0, ay = 0;
+    const up = keys["w"] || keys["arrowup"];
+    const down = keys["s"] || keys["arrowdown"];
+    const left = keys["a"] || keys["arrowleft"];
+    const right = keys["d"] || keys["arrowright"];
+
+    if (up) ay -= accel;
+    if (down) ay += accel;
+    if (left) ax -= accel * turn;
+    if (right) ax += accel * turn;
+
+    // apply accel
+    p.vx += ax * dt;
+    p.vy += ay * dt;
+
+    // friction
+    p.vx *= Math.pow(0.0015, dt);
+    p.vy *= Math.pow(0.0015, dt);
+
+    // clamp speed
+    const sp = Math.hypot(p.vx, p.vy);
+    if (sp > maxSpeed) {
+      p.vx = (p.vx / sp) * maxSpeed;
+      p.vy = (p.vy / sp) * maxSpeed;
+    }
+
+    // move with collision
+    const nx = p.x + p.vx * dt;
+    const ny = p.y + p.vy * dt;
+
+    // boundaries
+    p.x = clamp(nx, 10, WORLD.w-10);
+    p.y = clamp(ny, 10, WORLD.h-10);
+
+    // obstacle collision (simple)
+    for (const o of WORLD.obstacles) {
+      if (rectPointCollide(o, p.x, p.y, 10)) {
+        // push out
+        if (p.x < o.x) p.x = o.x - 12;
+        else if (p.x > o.x+o.w) p.x = o.x+o.w + 12;
+        if (p.y < o.y) p.y = o.y - 12;
+        else if (p.y > o.y+o.h) p.y = o.y+o.h + 12;
+
+        // damage the car a little on crash
+        if (car) {
+          const dmg = Math.min(8, 2 + sp/80);
+          car.condition = Math.max(10, Math.round(car.condition - dmg));
+          renderCurrentCar();
+        }
+        // bounce
+        p.vx *= -0.35;
+        p.vy *= -0.35;
+      }
+    }
+
+    // police pressure: if heat > 0, occasionally "fine" you when near roads (silly prototype)
+    if (state.heat > 0 && Math.random() < dt * (0.06 * state.heat)) {
+      const nearRoad = WORLD.roads.some(r => rectPointCollide(r, p.x, p.y, 10));
+      if (nearRoad) {
+        const fine = Math.min(state.money, 40 + state.heat*25);
+        addMoney(-fine);
+        toast(`Police pressure: paid ${fmt(fine)} (Heat ${state.heat}).`, 1400);
+      }
+    }
+
+    $("speed").textContent = Math.floor(sp);
+    if (car) $("cond").textContent = car.condition;
+  }
+
+  function rectPointCollide(r, x, y, pad=0) {
+    return x >= r.x - pad && x <= r.x + r.w + pad &&
+           y >= r.y - pad && y <= r.y + r.h + pad;
+  }
+
+  function draw() {
+    const theme = CITY_THEMES[state.city] || CITY_THEMES["NYC"];
+    ctx.clearRect(0,0,WORLD.w,WORLD.h);
+
+    // background
+    ctx.fillStyle = "#06080d";
+    ctx.fillRect(0,0,WORLD.w,WORLD.h);
+
+    // roads
+    ctx.fillStyle = theme.roads;
+    for (const r of WORLD.roads) ctx.fillRect(r.x,r.y,r.w,r.h);
+
+    // zone blocks
+    drawZone(WORLD.house, "#123021");
+    drawZone(WORLD.dealer, "#162a44");
+    drawZone(WORLD.chop, "#2a1f2a");
+    drawZone(WORLD.steal, "#2a1616");
+
+    // obstacles
+    ctx.fillStyle = "rgba(255,255,255,.08)";
+    for (const o of WORLD.obstacles) ctx.fillRect(o.x,o.y,o.w,o.h);
+
+    // player car
+    const p = state.player;
+    const car = state.garage.find(c => c.id === state.currentCarId) || null;
+
+    // body
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    const angle = Math.atan2(p.vy, p.vx);
+    if (Math.hypot(p.vx,p.vy) > 8) ctx.rotate(angle);
+
+    ctx.fillStyle = car ? "rgba(77,163,255,.95)" : "rgba(154,164,178,.9)";
+    ctx.fillRect(-10,-6,20,12);
+
+    // nose
+    ctx.fillStyle = "rgba(255,255,255,.65)";
+    ctx.fillRect(6,-3,4,6);
+
+    ctx.restore();
+
+    // labels
+    ctx.fillStyle = "rgba(255,255,255,.75)";
+    ctx.font = "12px ui-monospace, monospace";
+    ctx.fillText(`City: ${state.city}`, 14, 22);
+
+    const zone = getZone(p.x,p.y);
+    if (zone) {
+      ctx.fillStyle = theme.accent;
+      ctx.fillText(`Press E: ${WORLD[zone].name}`, 14, 42);
+    } else {
+      ctx.fillStyle = "rgba(255,255,255,.55)";
+      ctx.fillText("Drive to a zone: House / Dealership / Chop Shop / Steal Zone", 14, 42);
+    }
+  }
+
+  function drawZone(z, fill) {
+    ctx.fillStyle = fill;
+    ctx.fillRect(z.x,z.y,z.w,z.h);
+    ctx.strokeStyle = "rgba(255,255,255,.14)";
+    ctx.strokeRect(z.x,z.y,z.w,z.h);
+
+    ctx.fillStyle = "rgba(255,255,255,.82)";
+    ctx.font = "12px ui-monospace, monospace";
+    ctx.fillText(z.name, z.x+10, z.y+22);
+  }
+
+  // ---------------------------
+  // Buttons / Inputs
+  // ---------------------------
+  $("upgradeBtn").onclick = upgradeGarage;
+  $("saveBtn").onclick = save;
+  $("resetBtn").onclick = reset;
+
+  $("deliveryBtn").onclick = () => { addMoney(250); toast("Delivery complete: +$250"); };
+  $("timeTrialBtn").onclick = () => { addMoney(400); toast("Time trial: +$400"); };
+  $("rideshareBtn").onclick = () => { addMoney(180); toast("Rideshare: +$180"); };
+
+  $("stealBtn").onclick = stealCar;
+  $("chopBtn").onclick = chopSelected;
+
+  $("repairBtn").onclick = repairCurrent;
+  $("setHomeBtn").onclick = () => { state.player.x = 160; state.player.y = 520; toast("Teleported home."); };
+
+  $("search").addEventListener("input", renderDealer);
+  $("tierFilter").addEventListener("change", renderDealer);
+
+  $("travelBtn").onclick = () => travelToCity($("citySelect").value);
+  $("citySelect").addEventListener("change", () => {
+    // only update tag visually; travel happens on button press
+    $("cityTag").textContent = `City: ${$("citySelect").value}`;
+  });
+
+  // Auto-save occasionally
+  setInterval(() => {
+    localStorage.setItem("worldshift_singlefile", JSON.stringify(state));
+  }, 8000);
+
+  // ---------------------------
+  // Game Loop
+  // ---------------------------
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min(0.033, (now - last)/1000);
+    last = now;
+
+    update(dt);
+    draw();
+
+    requestAnimationFrame(loop);
+  }
+
+  // Init defaults if no car
+  if (!state.garage.length) {
+    // give player a starter beater so driving works
+    const starter = createOwnedCar(CARS[0], "bought");
+    starter.condition = 92;
+    state.garage.push(starter);
+    state.currentCarId = starter.id;
+    state.selectedGarageId = starter.id;
+  }
+
+  setHeat(state.heat);
+  renderAll();
+  requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>
