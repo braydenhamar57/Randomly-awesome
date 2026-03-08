@@ -1,0 +1,800 @@
+from pathlib import Path
+
+html = r'''<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QueueView</title>
+  <style>
+    :root{
+      --bg:#0b1020; --panel:#121933; --panel2:#182242; --text:#eef3ff; --muted:#a9b6d3;
+      --accent:#7c9cff; --accent2:#31d0aa; --danger:#ff6b6b; --border:#2a3663;
+      --shadow:0 10px 30px rgba(0,0,0,.25); --radius:18px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:linear-gradient(180deg,#09101d 0%,#0d1430 100%); color:var(--text);
+    }
+    .app{display:grid;grid-template-columns:360px 1fr;min-height:100vh;gap:16px;padding:16px}
+    .panel{
+      background:rgba(18,25,51,.94); border:1px solid var(--border); border-radius:var(--radius);
+      box-shadow:var(--shadow); overflow:hidden; backdrop-filter:blur(12px);
+    }
+    .sidebar{display:flex;flex-direction:column;min-height:0}
+    .section{padding:16px;border-bottom:1px solid var(--border)}
+    .section:last-child{border-bottom:none}
+    h1{font-size:1.35rem;margin:0 0 4px}
+    h2{font-size:.95rem;letter-spacing:.02em;color:var(--muted);margin:0 0 12px;font-weight:600;text-transform:uppercase}
+    p,.muted{color:var(--muted);margin:0}
+    label{display:block;font-size:.88rem;color:var(--muted);margin:10px 0 6px}
+    input,textarea,select,button{font:inherit}
+    input,textarea,select{
+      width:100%;background:#0d1530;color:var(--text);border:1px solid var(--border);
+      border-radius:12px;padding:12px;outline:none
+    }
+    textarea{min-height:110px;resize:vertical}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .btn-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+    button{
+      border:0;border-radius:12px;padding:11px 14px;background:var(--accent);
+      color:white;cursor:pointer;font-weight:700
+    }
+    button.secondary{background:#22315f}
+    button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+    button.danger{background:var(--danger)}
+    .workspace{display:grid;grid-template-rows:auto 1fr auto;min-width:0}
+    .toolbar{
+      display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;
+      padding:16px;border-bottom:1px solid var(--border)
+    }
+    .toolbar .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+    .badge{
+      display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;
+      background:#101937;border:1px solid var(--border);color:var(--muted);font-size:.9rem
+    }
+    .main{display:grid;grid-template-columns:minmax(0,1fr) 340px;min-height:0}
+    .player-area{padding:16px;min-width:0}
+    .player-shell{
+      position:relative;border-radius:18px;border:1px solid var(--border);background:#050914;
+      overflow:hidden;aspect-ratio:16/9;width:100%
+    }
+    iframe,.placeholder,#ytPlayerMount{position:absolute;inset:0;width:100%;height:100%;border:0}
+    .placeholder{
+      display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;
+      text-align:center;padding:24px;background:radial-gradient(circle at top,#17234a 0%,#09101d 60%)
+    }
+    .placeholder h3{margin:0;font-size:1.25rem}
+    .placeholder p{max-width:620px}
+    .meta{display:flex;justify-content:space-between;gap:12px;padding:14px 2px 0;align-items:flex-start}
+    .meta-title{font-size:1rem;font-weight:800;margin-bottom:6px;word-break:break-word}
+    .queue-wrap{border-left:1px solid var(--border);min-height:0;display:flex;flex-direction:column}
+    .queue-list{overflow:auto;padding:10px;min-height:0;display:flex;flex-direction:column;gap:10px}
+    .item{border:1px solid var(--border);background:#101937;border-radius:14px;padding:12px;display:grid;gap:8px}
+    .item.active{outline:2px solid var(--accent2);background:#132148}
+    .item-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+    .item-title{font-weight:700;font-size:.95rem;line-height:1.3;word-break:break-word}
+    .pill{
+      font-size:.72rem;letter-spacing:.03em;text-transform:uppercase;padding:5px 8px;border-radius:999px;
+      background:#0d1530;color:var(--muted);border:1px solid var(--border);white-space:nowrap
+    }
+    .item-url{color:var(--muted);font-size:.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .item-actions{display:flex;flex-wrap:wrap;gap:8px}
+    .tiny{padding:7px 10px;border-radius:10px;font-size:.82rem;font-weight:700}
+    .footer-note{padding:14px 16px;border-top:1px solid var(--border);color:var(--muted);font-size:.85rem}
+    .warn{
+      margin-top:10px;border:1px solid #725300;background:rgba(255,187,0,.08);color:#ffd775;
+      padding:10px 12px;border-radius:12px;font-size:.88rem;line-height:1.4
+    }
+    .ok{
+      margin-top:10px;border:1px solid #146c43;background:rgba(49,208,170,.08);color:#9af2d7;
+      padding:10px 12px;border-radius:12px;font-size:.88rem;line-height:1.4
+    }
+    @media (max-width:1100px){
+      .app{grid-template-columns:1fr}
+      .main{grid-template-columns:1fr}
+      .queue-wrap{border-left:0;border-top:1px solid var(--border)}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="panel sidebar">
+      <div class="section">
+        <h1>QueueView</h1>
+        <p>Paste Twitch, YouTube, or Nebula links into a queue and play through them one by one.</p>
+      </div>
+
+      <div class="section">
+        <h2>Add to Queue</h2>
+        <label for="urlInput">Single URL</label>
+        <input id="urlInput" type="text" placeholder="Paste a Twitch, YouTube, or Nebula URL" />
+
+        <label for="titleInput">Optional custom title</label>
+        <input id="titleInput" type="text" placeholder="Give this item a custom name" />
+
+        <div class="btn-row">
+          <button id="addBtn">Add Item</button>
+          <button id="playNowBtn" class="secondary">Add + Play Now</button>
+        </div>
+
+        <label for="bulkInput">Bulk add URLs (one per line)</label>
+        <textarea id="bulkInput" placeholder="https://www.twitch.tv/...&#10;https://www.youtube.com/watch?v=...&#10;https://nebula.tv/..."></textarea>
+        <div class="btn-row">
+          <button id="bulkAddBtn">Add Bulk</button>
+          <button id="clearInputBtn" class="ghost">Clear Fields</button>
+        </div>
+
+        <div class="warn">
+          Nebula often blocks iframe embedding, and Twitch embeds require a real host domain in the player URL. This file works best when served from <strong>localhost</strong> or a website, not opened directly as <strong>file://</strong>.
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Queue Settings</h2>
+        <div class="row">
+          <div>
+            <label for="autoAdvanceSelect">Auto-advance</label>
+            <select id="autoAdvanceSelect">
+              <option value="off">Off</option>
+              <option value="yt-end">YouTube end only</option>
+              <option value="timer">Timer for all items</option>
+            </select>
+          </div>
+          <div>
+            <label for="timerMinutes">Timer minutes</label>
+            <input id="timerMinutes" type="number" min="1" max="999" value="30" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="twitchParent">Twitch parent domain</label>
+            <input id="twitchParent" type="text" placeholder="localhost" />
+          </div>
+          <div>
+            <label for="startMuted">Playback mode</label>
+            <select id="startMuted">
+              <option value="muted">Muted where supported</option>
+              <option value="unmuted">Try with audio</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button id="saveBtn" class="secondary">Save Queue</button>
+          <button id="loadBtn" class="secondary">Load Queue</button>
+          <button id="resetBtn" class="danger">Clear Queue</button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="panel workspace">
+      <div class="toolbar">
+        <div class="badge"><strong id="queueCount">0</strong> item(s) in queue</div>
+        <div class="controls">
+          <button id="prevBtn" class="ghost">⟵ Prev</button>
+          <button id="toggleBtn">▶ Play</button>
+          <button id="nextBtn" class="ghost">Next ⟶</button>
+          <button id="openBtn" class="secondary">Open Current in New Tab</button>
+        </div>
+      </div>
+
+      <div class="main">
+        <section class="player-area">
+          <div class="player-shell" id="playerShell">
+            <div class="placeholder" id="placeholder">
+              <h3>Your queue is ready for chaos.</h3>
+              <p>Add a Twitch stream, YouTube video/stream, or Nebula video URL on the left. The current item plays here, and the rest sit in the queue on the right.</p>
+            </div>
+          </div>
+          <div class="meta">
+            <div>
+              <div class="meta-title" id="currentTitle">Nothing playing yet</div>
+              <div class="muted" id="currentUrl">—</div>
+            </div>
+            <div class="badge" id="currentType">No source</div>
+          </div>
+          <div class="warn" id="statusBox" style="display:none;"></div>
+          <div class="ok" id="saveBox" style="display:none;"></div>
+        </section>
+
+        <aside class="queue-wrap">
+          <div class="section" style="padding-bottom:10px;">
+            <h2>Queue</h2>
+            <p>Click any item to jump to it. Reorder with move buttons.</p>
+          </div>
+          <div class="queue-list" id="queueList"></div>
+        </aside>
+      </div>
+
+      <div class="footer-note">
+        Best results: host this file on <strong>localhost</strong> or a site domain, set the Twitch parent domain correctly, and use the “Open Current in New Tab” button when Nebula blocks embedding.
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'queueview_state_v1';
+
+    const state = {
+      queue: [],
+      currentIndex: -1,
+      isPlaying: false,
+      timerId: null,
+      ytPlayer: null
+    };
+
+    const els = {
+      urlInput: document.getElementById('urlInput'),
+      titleInput: document.getElementById('titleInput'),
+      bulkInput: document.getElementById('bulkInput'),
+      addBtn: document.getElementById('addBtn'),
+      playNowBtn: document.getElementById('playNowBtn'),
+      bulkAddBtn: document.getElementById('bulkAddBtn'),
+      clearInputBtn: document.getElementById('clearInputBtn'),
+      autoAdvanceSelect: document.getElementById('autoAdvanceSelect'),
+      timerMinutes: document.getElementById('timerMinutes'),
+      twitchParent: document.getElementById('twitchParent'),
+      startMuted: document.getElementById('startMuted'),
+      saveBtn: document.getElementById('saveBtn'),
+      loadBtn: document.getElementById('loadBtn'),
+      resetBtn: document.getElementById('resetBtn'),
+      prevBtn: document.getElementById('prevBtn'),
+      toggleBtn: document.getElementById('toggleBtn'),
+      nextBtn: document.getElementById('nextBtn'),
+      openBtn: document.getElementById('openBtn'),
+      playerShell: document.getElementById('playerShell'),
+      placeholder: document.getElementById('placeholder'),
+      currentTitle: document.getElementById('currentTitle'),
+      currentUrl: document.getElementById('currentUrl'),
+      currentType: document.getElementById('currentType'),
+      queueList: document.getElementById('queueList'),
+      queueCount: document.getElementById('queueCount'),
+      statusBox: document.getElementById('statusBox'),
+      saveBox: document.getElementById('saveBox')
+    };
+
+    function showStatus(message) {
+      els.statusBox.style.display = 'block';
+      els.statusBox.innerHTML = message;
+    }
+
+    function clearStatus() {
+      els.statusBox.style.display = 'none';
+      els.statusBox.textContent = '';
+    }
+
+    function showSave(message) {
+      els.saveBox.style.display = 'block';
+      els.saveBox.textContent = message;
+      setTimeout(() => {
+        els.saveBox.style.display = 'none';
+        els.saveBox.textContent = '';
+      }, 2200);
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function normalizeUrl(url) {
+      try {
+        const value = url.trim();
+        if (!value) return null;
+        const hasProtocol = /^https?:\/\//i.test(value);
+        return new URL(hasProtocol ? value : `https://${value}`).toString();
+      } catch {
+        return null;
+      }
+    }
+
+    function detectType(url) {
+      const u = url.toLowerCase();
+      if (u.includes('youtube.com') || u.includes('youtu.be')) return 'youtube';
+      if (u.includes('twitch.tv')) return 'twitch';
+      if (u.includes('nebula.tv')) return 'nebula';
+      return 'generic';
+    }
+
+    function getYoutubeId(url) {
+      try {
+        const parsed = new URL(url);
+        if (parsed.hostname.includes('youtu.be')) return parsed.pathname.slice(1);
+        if (parsed.searchParams.get('v')) return parsed.searchParams.get('v');
+        const parts = parsed.pathname.split('/').filter(Boolean);
+        const embedIdx = parts.indexOf('embed');
+        if (embedIdx >= 0 && parts[embedIdx + 1]) return parts[embedIdx + 1];
+        const liveIdx = parts.indexOf('live');
+        if (liveIdx >= 0 && parts[liveIdx + 1]) return parts[liveIdx + 1];
+      } catch {}
+      return null;
+    }
+
+    function getTwitchChannel(url) {
+      try {
+        const parsed = new URL(url);
+        const parts = parsed.pathname.split('/').filter(Boolean);
+        if (!parts.length) return null;
+        if (['videos', 'collections', 'directory', 'downloads', 'settings'].includes(parts[0])) return null;
+        return parts[0];
+      } catch {}
+      return null;
+    }
+
+    function titleFromUrl(type, url) {
+      try {
+        const parsed = new URL(url);
+        if (type === 'youtube') return `YouTube: ${getYoutubeId(url) || parsed.pathname}`;
+        if (type === 'twitch') return `Twitch: ${getTwitchChannel(url) || parsed.pathname}`;
+        if (type === 'nebula') return `Nebula: ${parsed.pathname.replace(/^\//, '') || parsed.hostname}`;
+        return parsed.hostname;
+      } catch {
+        return url;
+      }
+    }
+
+    function persist() {
+      const payload = {
+        queue: state.queue,
+        currentIndex: state.currentIndex,
+        settings: {
+          autoAdvance: els.autoAdvanceSelect.value,
+          timerMinutes: els.timerMinutes.value,
+          twitchParent: els.twitchParent.value,
+          startMuted: els.startMuted.value
+        }
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    }
+
+    function loadPersisted() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      try {
+        const data = JSON.parse(raw);
+        state.queue = Array.isArray(data.queue) ? data.queue : [];
+        state.currentIndex = typeof data.currentIndex === 'number' ? data.currentIndex : (state.queue.length ? 0 : -1);
+        if (data.settings) {
+          els.autoAdvanceSelect.value = data.settings.autoAdvance || 'off';
+          els.timerMinutes.value = data.settings.timerMinutes || '30';
+          els.twitchParent.value = data.settings.twitchParent || (location.hostname || 'localhost');
+          els.startMuted.value = data.settings.startMuted || 'muted';
+        }
+      } catch (err) {
+        console.warn('Could not load saved queue', err);
+      }
+    }
+
+    function addQueueItem(rawUrl, customTitle = '', playNow = false) {
+      const url = normalizeUrl(rawUrl);
+      if (!url) {
+        showStatus(`Couldn't use this URL: ${escapeHtml(rawUrl)}`);
+        return false;
+      }
+      const type = detectType(url);
+      const item = {
+        id: crypto.randomUUID(),
+        url,
+        type,
+        title: customTitle.trim() || titleFromUrl(type, url),
+        addedAt: Date.now()
+      };
+      state.queue.push(item);
+      if (state.currentIndex === -1) state.currentIndex = 0;
+      if (playNow) state.currentIndex = state.queue.length - 1;
+      renderQueue();
+      persist();
+      if (playNow) playCurrent();
+      clearStatus();
+      return true;
+    }
+
+    function renderQueue() {
+      els.queueCount.textContent = state.queue.length;
+      els.queueList.innerHTML = '';
+
+      if (!state.queue.length) {
+        els.queueList.innerHTML = '<div class="muted" style="padding:6px 6px 0;">No items yet. Paste some URLs and stir the pot.</div>';
+        return;
+      }
+
+      state.queue.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.className = `item ${index === state.currentIndex ? 'active' : ''}`;
+        div.innerHTML = `
+          <div class="item-top">
+            <div class="item-title">${escapeHtml(item.title)}</div>
+            <div class="pill">${escapeHtml(item.type)}</div>
+          </div>
+          <div class="item-url">${escapeHtml(item.url)}</div>
+          <div class="item-actions">
+            <button class="tiny ghost" data-action="jump">Play</button>
+            <button class="tiny ghost" data-action="up">↑</button>
+            <button class="tiny ghost" data-action="down">↓</button>
+            <button class="tiny ghost" data-action="open">Open</button>
+            <button class="tiny danger" data-action="remove">Remove</button>
+          </div>
+        `;
+        div.addEventListener('click', (e) => {
+          const action = e.target?.dataset?.action;
+          if (!action) return;
+          e.stopPropagation();
+          handleItemAction(index, action);
+        });
+        div.addEventListener('dblclick', () => {
+          state.currentIndex = index;
+          playCurrent();
+        });
+        els.queueList.appendChild(div);
+      });
+    }
+
+    function handleItemAction(index, action) {
+      if (action === 'jump') {
+        state.currentIndex = index;
+        playCurrent();
+      }
+      if (action === 'up' && index > 0) {
+        [state.queue[index - 1], state.queue[index]] = [state.queue[index], state.queue[index - 1]];
+        if (state.currentIndex === index) state.currentIndex = index - 1;
+        else if (state.currentIndex === index - 1) state.currentIndex = index;
+        renderQueue(); persist();
+      }
+      if (action === 'down' && index < state.queue.length - 1) {
+        [state.queue[index + 1], state.queue[index]] = [state.queue[index], state.queue[index + 1]];
+        if (state.currentIndex === index) state.currentIndex = index + 1;
+        else if (state.currentIndex === index + 1) state.currentIndex = index;
+        renderQueue(); persist();
+      }
+      if (action === 'open') {
+        window.open(state.queue[index].url, '_blank', 'noopener');
+      }
+      if (action === 'remove') {
+        state.queue.splice(index, 1);
+        if (!state.queue.length) {
+          state.currentIndex = -1;
+          renderEmpty();
+        } else if (state.currentIndex >= state.queue.length) {
+          state.currentIndex = state.queue.length - 1;
+          playCurrent();
+        } else if (index === state.currentIndex) {
+          playCurrent();
+        } else {
+          renderQueue();
+        }
+        persist();
+      }
+    }
+
+    function clearPlayer() {
+      clearTimeout(state.timerId);
+      state.timerId = null;
+      if (state.ytPlayer && typeof state.ytPlayer.destroy === 'function') {
+        try { state.ytPlayer.destroy(); } catch {}
+      }
+      state.ytPlayer = null;
+      [...els.playerShell.querySelectorAll('iframe, #ytPlayerMount')].forEach(el => el.remove());
+      els.placeholder.style.display = 'flex';
+    }
+
+    function renderEmpty() {
+      clearPlayer();
+      els.currentTitle.textContent = 'Nothing playing yet';
+      els.currentUrl.textContent = '—';
+      els.currentType.textContent = 'No source';
+      els.toggleBtn.textContent = '▶ Play';
+      state.isPlaying = false;
+      renderQueue();
+      clearStatus();
+    }
+
+    function maybeStartTimer() {
+      clearTimeout(state.timerId);
+      state.timerId = null;
+      const mode = els.autoAdvanceSelect.value;
+      if (mode !== 'timer') return;
+      const mins = Number(els.timerMinutes.value || 0);
+      if (mins > 0) {
+        state.timerId = setTimeout(() => nextItem(), mins * 60 * 1000);
+      }
+    }
+
+    function getMutedFlag() {
+      return els.startMuted.value === 'muted';
+    }
+
+    function ensureYouTubeApi() {
+      if (window.YT && window.YT.Player) return Promise.resolve();
+      return new Promise((resolve) => {
+        const existing = document.getElementById('yt-iframe-api');
+        if (existing) {
+          const check = setInterval(() => {
+            if (window.YT && window.YT.Player) {
+              clearInterval(check);
+              resolve();
+            }
+          }, 200);
+          return;
+        }
+        const tag = document.createElement('script');
+        tag.id = 'yt-iframe-api';
+        tag.src = 'https://www.youtube.com/iframe_api';
+        document.head.appendChild(tag);
+        window.onYouTubeIframeAPIReady = () => resolve();
+      });
+    }
+
+    async function embedYouTube(item) {
+      const videoId = getYoutubeId(item.url);
+      if (!videoId) {
+        showStatus('Could not parse that YouTube URL.');
+        return;
+      }
+      await ensureYouTubeApi();
+      const mount = document.createElement('div');
+      mount.id = 'ytPlayerMount';
+      els.playerShell.appendChild(mount);
+      els.placeholder.style.display = 'none';
+
+      state.ytPlayer = new YT.Player('ytPlayerMount', {
+        width: '100%',
+        height: '100%',
+        videoId,
+        playerVars: {
+          autoplay: 1,
+          playsinline: 1,
+          mute: getMutedFlag() ? 1 : 0,
+          rel: 0
+        },
+        events: {
+          onReady: (event) => {
+            state.isPlaying = true;
+            els.toggleBtn.textContent = '⏸ Pause';
+            try { event.target.playVideo(); } catch {}
+          },
+          onStateChange: (event) => {
+            if (event.data === YT.PlayerState.ENDED && els.autoAdvanceSelect.value === 'yt-end') {
+              nextItem();
+            }
+          }
+        }
+      });
+    }
+
+    function embedIframe(src) {
+      const iframe = document.createElement('iframe');
+      iframe.src = src;
+      iframe.allow = 'autoplay; fullscreen; picture-in-picture; encrypted-media';
+      iframe.setAttribute('allowfullscreen', 'true');
+      els.playerShell.appendChild(iframe);
+      els.placeholder.style.display = 'none';
+      state.isPlaying = true;
+      els.toggleBtn.textContent = '⏸ Pause';
+    }
+
+    async function playCurrent() {
+      clearPlayer();
+      clearStatus();
+      const item = state.queue[state.currentIndex];
+      renderQueue();
+
+      if (!item) {
+        renderEmpty();
+        return;
+      }
+
+      els.currentTitle.textContent = item.title;
+      els.currentUrl.textContent = item.url;
+      els.currentType.textContent = item.type;
+
+      try {
+        if (item.type === 'youtube') {
+          await embedYouTube(item);
+        } else if (item.type === 'twitch') {
+          const channel = getTwitchChannel(item.url);
+          if (!channel) {
+            showStatus('That Twitch URL is not a channel stream URL. Try a channel like https://www.twitch.tv/channelname');
+            renderEmpty();
+            return;
+          }
+          const parent = (els.twitchParent.value || location.hostname || 'localhost').trim();
+          const muted = getMutedFlag() ? '&muted=true' : '';
+          const src = `https://player.twitch.tv/?channel=${encodeURIComponent(channel)}&parent=${encodeURIComponent(parent)}${muted}`;
+          embedIframe(src);
+          if (location.protocol === 'file:') {
+            showStatus('Twitch embeds usually will not work from a file:// HTML file. Run this on localhost and keep Twitch parent domain set to localhost.');
+          }
+        } else if (item.type === 'nebula') {
+          embedIframe(item.url);
+          showStatus('Nebula may block embedding on some videos. If the player stays blank, use “Open Current in New Tab.”');
+        } else {
+          embedIframe(item.url);
+          showStatus('This URL type is being opened as a generic iframe. If it refuses to load, open it in a new tab instead.');
+        }
+        maybeStartTimer();
+      } catch (err) {
+        console.error(err);
+        showStatus('Could not load that item in the player. Try opening it in a new tab.');
+      }
+      persist();
+    }
+
+    function nextItem() {
+      if (!state.queue.length) return;
+      state.currentIndex = (state.currentIndex + 1) % state.queue.length;
+      playCurrent();
+    }
+
+    function prevItem() {
+      if (!state.queue.length) return;
+      state.currentIndex = (state.currentIndex - 1 + state.queue.length) % state.queue.length;
+      playCurrent();
+    }
+
+    function togglePlayback() {
+      const item = state.queue[state.currentIndex];
+      if (!item) return;
+      if (item.type === 'youtube' && state.ytPlayer) {
+        const playerState = state.ytPlayer.getPlayerState?.();
+        if (playerState === YT.PlayerState.PLAYING) {
+          state.ytPlayer.pauseVideo();
+          state.isPlaying = false;
+          els.toggleBtn.textContent = '▶ Play';
+        } else {
+          state.ytPlayer.playVideo();
+          state.isPlaying = true;
+          els.toggleBtn.textContent = '⏸ Pause';
+        }
+        return;
+      }
+      showStatus('Pause/play toggle is fully supported for YouTube. For Twitch and Nebula, use the embedded player controls directly.');
+    }
+
+    function downloadTextFile(filename, text, type) {
+      const blob = new Blob([text], { type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function exportQueue() {
+      const payload = {
+        queue: state.queue,
+        exportedAt: new Date().toISOString()
+      };
+      downloadTextFile('queueview-queue.json', JSON.stringify(payload, null, 2), 'application/json');
+      showSave('Queue JSON downloaded.');
+    }
+
+    function importQueue() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'application/json,.json';
+      input.addEventListener('change', async () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        try {
+          const text = await file.text();
+          const data = JSON.parse(text);
+          if (!Array.isArray(data.queue)) throw new Error('Invalid queue file');
+          state.queue = data.queue.map(item => ({
+            id: item.id || crypto.randomUUID(),
+            url: item.url,
+            type: item.type || detectType(item.url),
+            title: item.title || titleFromUrl(detectType(item.url), item.url),
+            addedAt: item.addedAt || Date.now()
+          }));
+          state.currentIndex = state.queue.length ? 0 : -1;
+          renderQueue();
+          if (state.currentIndex >= 0) playCurrent(); else renderEmpty();
+          persist();
+          showSave('Queue loaded.');
+        } catch (err) {
+          console.error(err);
+          showStatus('Could not load that queue file.');
+        }
+      });
+      input.click();
+    }
+
+    els.addBtn.addEventListener('click', () => {
+      if (addQueueItem(els.urlInput.value, els.titleInput.value, false)) {
+        els.urlInput.value = '';
+        els.titleInput.value = '';
+      }
+    });
+
+    els.playNowBtn.addEventListener('click', () => {
+      if (addQueueItem(els.urlInput.value, els.titleInput.value, true)) {
+        els.urlInput.value = '';
+        els.titleInput.value = '';
+      }
+    });
+
+    els.bulkAddBtn.addEventListener('click', () => {
+      const lines = els.bulkInput.value.split('\n').map(v => v.trim()).filter(Boolean);
+      if (!lines.length) return;
+      let added = 0;
+      lines.forEach(line => { if (addQueueItem(line, '', false)) added += 1; });
+      if (added) {
+        els.bulkInput.value = '';
+        showSave(`${added} item(s) added.`);
+        if (state.currentIndex === 0 && !state.isPlaying) renderQueue();
+      }
+    });
+
+    els.clearInputBtn.addEventListener('click', () => {
+      els.urlInput.value = '';
+      els.titleInput.value = '';
+      els.bulkInput.value = '';
+    });
+
+    els.prevBtn.addEventListener('click', prevItem);
+    els.nextBtn.addEventListener('click', nextItem);
+    els.toggleBtn.addEventListener('click', () => {
+      if (state.currentIndex === -1 && state.queue.length) {
+        state.currentIndex = 0;
+        playCurrent();
+      } else {
+        togglePlayback();
+      }
+    });
+    els.openBtn.addEventListener('click', () => {
+      const item = state.queue[state.currentIndex];
+      if (!item) return;
+      window.open(item.url, '_blank', 'noopener');
+    });
+
+    els.saveBtn.addEventListener('click', exportQueue);
+    els.loadBtn.addEventListener('click', importQueue);
+    els.resetBtn.addEventListener('click', () => {
+      if (!confirm('Clear the whole queue?')) return;
+      state.queue = [];
+      state.currentIndex = -1;
+      persist();
+      renderEmpty();
+    });
+
+    [els.autoAdvanceSelect, els.timerMinutes, els.twitchParent, els.startMuted].forEach(el => {
+      el.addEventListener('change', persist);
+    });
+
+    els.urlInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        els.addBtn.click();
+      }
+    });
+
+    loadPersisted();
+    if (!els.twitchParent.value) {
+      els.twitchParent.value = location.hostname || 'localhost';
+    }
+    renderQueue();
+    if (state.currentIndex >= 0 && state.queue.length) {
+      // don't auto-play on load; just show selected item info
+      const item = state.queue[state.currentIndex];
+      els.currentTitle.textContent = item.title;
+      els.currentUrl.textContent = item.url;
+      els.currentType.textContent = item.type;
+    }
+  </script>
+</body>
+</html>
+'''
+
+path = Path('/mnt/data/queueview.html')
+path.write_text(html, encoding='utf-8')
+print(f"Saved to {path}")
